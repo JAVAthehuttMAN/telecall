@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TELECALL v4</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* ══════════════════════════════════
+   VARIABLES
+══════════════════════════════════ */
+:root{
+  --bg:#060B14;--sf:#0D1520;--sf2:#111D2E;--sf3:#162236;
+  --bd:rgba(0,212,255,.12);--bd2:rgba(0,212,255,.06);
+  --ac:#00D4FF;--ac2:#00FF88;--warn:#FFB800;--dng:#FF4466;--pur:#A855F7;
+  --tx:#E8F4FD;--tx2:#7BA3C4;--tx3:#3A5A7A;
+  --glow:0 0 20px rgba(0,212,255,.3);
+  --mono:'JetBrains Mono',monospace;
+  --orb:'Orbitron',sans-serif;
+  --sans:'Noto Sans JP',sans-serif;
+  --t:.2s cubic-bezier(.4,0,.2,1);
+}
+[data-theme=light]{
+  --bg:#F0F4F8;--sf:#FFF;--sf2:#F7FAFC;--sf3:#EDF2F7;
+  --bd:rgba(0,100,180,.15);--bd2:rgba(0,100,180,.07);
+  --ac:#0066CC;--ac2:#00A854;--warn:#CC7700;--dng:#CC2244;--pur:#7C3AED;
+  --tx:#1A2840;--tx2:#4A6A8A;--tx3:#8AAAC4;
+  --glow:0 0 20px rgba(0,102,204,.15);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:14px;transition:background var(--t),color var(--t)}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.015) 2px,rgba(0,212,255,.015) 4px);pointer-events:none;z-index:1000}
+[data-theme=light] body::before{display:none}
+
+/* ══════════════════════════════════
+   LOGIN
+══════════════════════════════════ */
+.login-screen{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.login-box{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:48px 40px;text-align:center;width:360px;position:relative;overflow:hidden}
+.login-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--ac),transparent)}
+.login-logo{font-family:var(--orb);font-size:28px;font-weight:700;color:var(--tx);margin-bottom:4px}
+.login-logo span{color:var(--ac)}
+.login-sub{font-size:11px;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;margin-bottom:32px}
+.login-btn{width:100%;padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--ac),#0088CC);color:#000;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--orb);letter-spacing:.08em;box-shadow:0 4px 20px rgba(0,212,255,.4);transition:all var(--t);display:flex;align-items:center;justify-content:center;gap:10px}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,212,255,.5)}
+.login-note{font-size:10px;color:var(--tx3);margin-top:14px;font-family:var(--mono)}
+
+/* ══════════════════════════════════
+   APP LAYOUT
+══════════════════════════════════ */
+.app{display:grid;grid-template-columns:220px 1fr;height:100vh;overflow:hidden;opacity:0;transition:opacity .4s,grid-template-columns .2s;display:none}
+.app.nav-min{grid-template-columns:60px 1fr}
+.nav-min .sidebar-logo .logo-title,.nav-min .sidebar-logo .logo-mark,.nav-min .sidebar-logo .logo-ver{display:none}
+.nav-min .nav-group-label{display:none}
+.nav-min .nav-item{font-size:0;justify-content:center;padding:11px 0;gap:0}
+.nav-min .nav-item .ni{font-size:19px;width:auto}
+.nav-min .nav-badge,.nav-min .nav-admin-badge{display:none}
+.nav-min .sidebar-bottom{display:none}
+.nav-toggle{position:absolute;top:8px;right:8px;background:var(--sf2);border:1px solid var(--bd);color:var(--tx2);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px;line-height:1;z-index:3}
+.nav-toggle:hover{color:var(--ac);border-color:var(--ac)}
+.nav-min .nav-toggle{right:17px}
+.app.ready{opacity:1}
+
+/* ══════════════════════════════════
+   SIDEBAR
+══════════════════════════════════ */
+.sidebar{background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.sidebar::after{content:'';position:absolute;top:0;right:0;width:1px;height:100%;background:linear-gradient(180deg,transparent,var(--ac),transparent);opacity:.4}
+.sidebar-logo{padding:18px 18px 14px;border-bottom:1px solid var(--bd2)}
+.logo-mark{font-family:var(--mono);font-size:9px;color:var(--ac);letter-spacing:.2em;margin-bottom:4px;opacity:.8}
+.logo-title{font-family:var(--orb);font-size:15px;font-weight:700;color:var(--tx);letter-spacing:.05em}
+.logo-title span{color:var(--ac)}
+.logo-ver{font-size:9px;color:var(--tx3);font-family:var(--mono);margin-top:1px}
+
+.nav-wrap{flex:1;overflow-y:auto;padding:10px 0}
+.nav-group-label{font-size:9px;font-family:var(--mono);color:var(--tx3);letter-spacing:.15em;padding:8px 16px 3px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;color:var(--tx2);font-size:12.5px;transition:all var(--t);border:none;background:none;width:100%;text-align:left;font-family:var(--sans);border-left:2px solid transparent}
+.nav-item:hover{color:var(--tx);background:var(--bd2)}
+.nav-item.active{color:var(--ac);background:rgba(0,212,255,.06);border-left-color:var(--ac)}
+.nav-item .ni{font-size:14px;width:16px;text-align:center;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--dng);color:#fff;font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:10px}
+.nav-admin-badge{margin-left:auto;font-size:9px;font-family:var(--mono);color:var(--warn);background:rgba(255,184,0,.15);border:1px solid rgba(255,184,0,.3);padding:1px 6px;border-radius:4px}
+
+.sidebar-bottom{padding:10px;border-top:1px solid var(--bd2)}
+.user-chip{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--sf2);border:1px solid var(--bd2);border-radius:8px;margin-bottom:8px}
+.user-av{width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--bd);flex-shrink:0}
+.user-av-ph{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--pur));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.user-name{font-size:11px;color:var(--tx);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-role-badge{font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:3px}
+.role-admin{background:rgba(255,184,0,.2);color:var(--warn)}
+.role-op{background:rgba(0,212,255,.1);color:var(--ac)}
+.logout-btn{font-size:10px;color:var(--tx3);background:none;border:none;cursor:pointer;font-family:var(--mono);transition:color var(--t);padding:2px}
+.logout-btn:hover{color:var(--dng)}
+
+.staff-label{font-size:9px;color:var(--tx3);font-family:var(--mono);letter-spacing:.1em;margin-bottom:4px;text-transform:uppercase}
+.sel{width:100%;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:7px 10px;border-radius:6px;font-size:12px;font-family:var(--sans);outline:none;cursor:pointer;transition:border-color var(--t);margin-bottom:7px}
+.sel:focus{border-color:var(--ac)}
+.theme-btn{width:100%;padding:6px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx2);font-size:11px;cursor:pointer;font-family:var(--mono);transition:all var(--t);display:flex;align-items:center;justify-content:center;gap:5px}
+.theme-btn:hover{border-color:var(--ac);color:var(--ac)}
+
+/* ══════════════════════════════════
+   MAIN
+══════════════════════════════════ */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:0 20px;height:50px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-title{font-family:var(--orb);font-size:12px;letter-spacing:.08em;color:var(--tx)}
+.topbar-r{display:flex;align-items:center;gap:10px}
+.clock{font-family:var(--mono);font-size:12px;color:var(--ac);letter-spacing:.05em}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--ac2);box-shadow:0 0 8px var(--ac2);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.pages{flex:1;overflow-y:auto;position:relative}
+.page{display:none;padding:18px}
+.page.active{display:block}
+
+/* ══════════════════════════════════
+   CALL PAGE（シンプル）
+══════════════════════════════════ */
+.call-layout{display:grid;grid-template-columns:1fr 178px;gap:14px;height:calc(100vh - 50px - 36px);min-height:0;overflow:hidden}
+
+/* 顧客カード */
+.customer-card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:12px}
+.customer-card-search{position:relative}
+.c-search{width:100%;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:13px 12px 13px 38px;border-radius:8px;font-size:17px;font-family:var(--sans);outline:none;transition:all var(--t)}
+.c-search:focus{border-color:var(--ac);box-shadow:var(--glow)}
+.c-search::placeholder{color:var(--tx3)}
+.c-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:13px}
+.c-dropdown{position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;margin-top:3px;max-height:180px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.5);display:none}
+.c-opt{padding:9px 12px;cursor:pointer;font-size:12.5px;border-bottom:1px solid var(--bd2);transition:background var(--t)}
+.c-opt:last-child{border-bottom:none}
+.c-opt:hover{background:rgba(0,212,255,.08)}
+.c-opt-name{color:var(--tx);font-weight:500}
+.c-opt-ph{color:var(--tx3);font-family:var(--mono);font-size:11px;margin-top:1px}
+
+.selected-c{display:none;margin-top:10px;background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.25);border-radius:8px;padding:10px 12px}
+.selected-c-name{font-size:19px;font-weight:700;color:var(--ac)}
+.selected-c-ph{font-size:12px;color:var(--tx2);font-family:var(--mono);margin-top:2px}
+.selected-c-addr{font-size:11px;color:var(--tx3);margin-top:1px}
+.clear-c-btn{float:right;background:none;border:none;color:var(--dng);font-size:17px;cursor:pointer;line-height:1}
+
+/* 電話ボタン */
+.call-btn-wrap{display:flex;justify-content:center;margin:14px 0}
+.call-btn{width:72px;height:72px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--ac2),#00CC66);color:#000;font-size:28px;cursor:pointer;transition:all var(--t);box-shadow:0 4px 20px rgba(0,255,136,.4);display:flex;align-items:center;justify-content:center}
+.call-btn:hover{transform:scale(1.08);box-shadow:0 8px 32px rgba(0,255,136,.6)}
+.call-btn:active{transform:scale(.95)}
+.call-btn.calling{background:linear-gradient(135deg,var(--dng),#CC0033);animation:callPulse 1.5s ease-in-out infinite;box-shadow:0 4px 20px rgba(255,68,102,.5)}
+@keyframes callPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,68,102,.4)}50%{box-shadow:0 0 0 16px rgba(255,68,102,0)}}
+
+/* フラググリッド */
+.flag-section{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.flag-sec-title{font-size:9px;font-family:var(--mono);color:var(--tx3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+.flag-grid{display:grid;gap:6px}
+.flag-btn{padding:9px 6px;border-radius:7px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx2);font-size:11.5px;font-weight:500;cursor:pointer;transition:all var(--t);font-family:var(--sans);text-align:center}
+.flag-btn:hover{border-color:var(--ac);color:var(--tx)}
+.flag-btn.sel-flag{color:#fff;font-weight:700}
+
+/* メモ */
+.memo-section{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px;flex:1}
+.memo-label{font-size:12px;font-family:var(--mono);color:var(--tx3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.memo-input{width:100%;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:11px 13px;border-radius:7px;font-size:19px;line-height:1.6;font-family:var(--sans);outline:none;transition:all var(--t);resize:vertical;min-height:110px}
+.memo-input:focus{border-color:var(--ac)}
+.memo-input::placeholder{color:var(--tx3)}
+
+.cb-section{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px;display:none}
+
+/* 記録ボタン */
+.rec-btn{width:100%;padding:12px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--ac),#0088CC);color:#000;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--orb);letter-spacing:.06em;transition:all var(--t);box-shadow:0 4px 16px rgba(0,212,255,.3)}
+.rec-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,212,255,.4)}
+.rec-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* サブフラグ */
+.subflag-row{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.sf-chip{padding:3px 10px;border-radius:20px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx2);font-size:11px;cursor:pointer;transition:all var(--t)}
+.sf-chip:hover{border-color:var(--ac);color:var(--tx)}
+.sf-chip.sel-sf{border-color:var(--ac);color:var(--ac);background:rgba(0,212,255,.1)}
+
+/* 右サイドミニKPI */
+.side-kpi{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:10px}
+.skpi{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:10px;text-align:center}
+.skpi-num{font-family:var(--orb);font-size:18px;font-weight:700;line-height:1}
+.skpi-label{font-size:8px;color:var(--tx3);font-family:var(--mono);letter-spacing:.08em;margin-top:2px;text-transform:uppercase}
+
+/* 本日コールバック */
+.today-cb-box{background:var(--sf);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.tcb-head{padding:9px 12px;border-bottom:1px solid var(--bd2);font-size:9px;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase}
+.tcb-body{padding:8px 12px}
+.tcb-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd2)}
+.tcb-item:last-child{border-bottom:none}
+.tcb-time{font-family:var(--mono);font-size:11px;color:var(--ac);min-width:45px}
+.tcb-name{font-size:12px;color:var(--tx);flex:1}
+
+/* ── ページ下部のボタンバー ── */
+.bottom-bar{height:36px;border-top:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;justify-content:center;gap:8px;flex-shrink:0}
+.bb-btn{padding:4px 16px;background:none;border:1px solid var(--bd);border-radius:20px;color:var(--tx2);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all var(--t);letter-spacing:.05em}
+.bb-btn:hover{border-color:var(--ac);color:var(--ac)}
+.bb-btn.active{border-color:var(--ac);color:var(--ac);background:rgba(0,212,255,.06)}
+
+/* ══════════════════════════════════
+   SHARED SECTION
+══════════════════════════════════ */
+.sec{background:var(--sf);border:1px solid var(--bd);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.sec-head{padding:10px 14px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;justify-content:space-between}
+.sec-title{font-size:10px;font-family:var(--mono);color:var(--tx2);letter-spacing:.1em;text-transform:uppercase}
+.sec-body{padding:14px}
+.inp-label{font-size:9px;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.inp{width:100%;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:8px 11px;border-radius:6px;font-size:12.5px;font-family:var(--sans);outline:none;transition:all var(--t)}
+.inp:focus{border-color:var(--ac)}
+.inp::placeholder{color:var(--tx3)}
+.btn-primary{padding:9px 18px;border:none;border-radius:7px;background:linear-gradient(135deg,var(--ac),#0088CC);color:#000;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--orb);letter-spacing:.05em;transition:all var(--t)}
+.btn-primary:hover{opacity:.85}
+.btn-danger{padding:5px 10px;border-radius:5px;border:1px solid var(--dng);color:var(--dng);background:none;font-size:11px;font-family:var(--mono);cursor:pointer;transition:all var(--t)}
+.btn-danger:hover{background:rgba(255,68,102,.1)}
+.btn-ghost{padding:5px 10px;border-radius:5px;border:1px solid var(--ac);color:var(--ac);background:none;font-size:11px;font-family:var(--mono);cursor:pointer;transition:all var(--t)}
+.btn-ghost:hover{background:rgba(0,212,255,.1)}
+.row-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;margin-bottom:6px}
+.row-item-name{font-size:13px;font-weight:500;color:var(--tx)}
+.row-item-sub{font-size:10px;color:var(--tx3);font-family:var(--mono);margin-top:2px}
+.row-actions{display:flex;gap:5px}
+.empty-state{padding:28px;text-align:center;color:var(--tx3);font-family:var(--mono);font-size:11px;letter-spacing:.05em}
+
+/* フラグカラー管理 */
+.color-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
+.flag-color-sel{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:5px;font-size:11px;font-family:var(--mono);outline:none;cursor:pointer}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kpi-card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:13px 14px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--ac),transparent);opacity:.5}
+.kpi-card.kc-g::before{background:linear-gradient(90deg,transparent,var(--ac2),transparent)}
+.kpi-card.kc-w::before{background:linear-gradient(90deg,transparent,var(--warn),transparent)}
+.kpi-card.kc-r::before{background:linear-gradient(90deg,transparent,var(--dng),transparent)}
+.kpi-lbl{font-size:9px;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.kpi-num{font-family:var(--orb);font-size:24px;font-weight:700;line-height:1;color:var(--ac)}
+.kpi-card.kc-g .kpi-num{color:var(--ac2)}
+.kpi-card.kc-w .kpi-num{color:var(--warn)}
+.kpi-card.kc-r .kpi-num{color:var(--dng)}
+.kpi-sub{font-size:9px;color:var(--tx3);margin-top:3px;font-family:var(--mono)}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.chart-box{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:13px}
+.chart-title{font-size:9px;font-family:var(--mono);color:var(--tx2);margin-bottom:10px;letter-spacing:.08em;text-transform:uppercase}
+canvas{max-height:170px}
+
+/* テーブル */
+.tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.tbl th{padding:7px 10px;text-align:left;color:var(--tx3);font-family:var(--mono);font-size:9px;letter-spacing:.1em;border-bottom:1px solid var(--bd);font-weight:400;text-transform:uppercase;white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--bd2);color:var(--tx2);vertical-align:middle}
+.tbl tr:hover td{background:var(--bd2)}
+.flag-tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9.5px;font-weight:600;font-family:var(--mono);white-space:nowrap}
+
+/* コールバック */
+.cb-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd2)}
+.cb-item:last-child{border-bottom:none}
+.cb-time{font-family:var(--orb);font-size:12px;color:var(--ac);min-width:80px}
+.cb-urgent .cb-time{color:var(--dng);animation:urgPulse 1s ease-in-out infinite}
+@keyframes urgPulse{0%,100%{opacity:1}50%{opacity:.5}}
+.cb-info{flex:1}
+.cb-name{font-size:12.5px;font-weight:500;color:var(--tx)}
+.cb-memo{font-size:10.5px;color:var(--tx3);margin-top:1px}
+.cb-cd{font-family:var(--mono);font-size:10px;color:var(--warn);background:rgba(255,184,0,.1);border:1px solid rgba(255,184,0,.3);padding:2px 7px;border-radius:4px}
+
+/* アラーム */
+.alarm-ov{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.alarm-ov.show{display:flex}
+.alarm-box{background:var(--sf);border:2px solid var(--dng);border-radius:16px;padding:32px 40px;text-align:center;box-shadow:0 0 60px rgba(255,68,102,.4);animation:alPulse 1s ease-in-out infinite;max-width:380px;width:90%}
+@keyframes alPulse{0%,100%{box-shadow:0 0 40px rgba(255,68,102,.4)}50%{box-shadow:0 0 80px rgba(255,68,102,.7)}}
+.al-icon{font-size:44px;margin-bottom:10px}
+.al-title{font-family:var(--orb);font-size:16px;color:var(--dng);margin-bottom:6px}
+.al-name{font-size:15px;font-weight:500;color:var(--tx);margin-bottom:3px}
+.al-time{font-family:var(--mono);font-size:12px;color:var(--warn);margin-bottom:18px}
+.al-dismiss{padding:9px 24px;background:var(--dng);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--orb)}
+
+/* トースト */
+.toast{position:fixed;bottom:52px;right:20px;z-index:10000;padding:9px 16px;border-radius:7px;font-size:12px;font-weight:500;font-family:var(--mono);opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:var(--ac2);color:#000}
+.toast.err{background:var(--dng);color:#fff}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--ac)}
+</style>
+</head>
+<body data-theme="dark">
+
+<!-- ALARM -->
+<div class="alarm-ov" id="alarmOv">
+  <div class="alarm-box">
+    <div class="al-icon">📞</div>
+    <div class="al-title">CALLBACK ALERT</div>
+    <div class="al-name" id="alName">—</div>
+    <div class="al-time" id="alTime">—</div>
+    <button class="al-dismiss" onclick="dismissAlarm()">確認 / DISMISS</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">TELE<span>CALL</span></div>
+    <div class="login-sub">SYSTEM v28.0</div>
+    <button class="login-btn" onclick="loginGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24" style="background:#fff;padding:2px;border-radius:3px"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Googleでログイン
+    </button>
+    <div class="login-note">承認済みアカウントのみアクセス可</div>
+    <div id="loginError" style="display:none;color:var(--dng);font-size:12px;margin-top:14px;line-height:1.6;word-break:break-word"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <button class="nav-toggle" onclick="toggleNav()" title="メニュー縮小/拡大">«</button>
+    <div class="logo-mark">TELECALL SYS v28.0</div>
+    <div class="logo-title">TELE<span>CALL</span></div>
+    <div class="logo-ver" id="todayDate">—</div>
+  </div>
+  <div class="nav-wrap">
+    <div class="nav-group-label">MAIN</div>
+    <button class="nav-item active" onclick="showPage('call',this)"><span class="ni">📞</span>コール</button>
+    <button class="nav-item" onclick="showPage('callback',this)"><span class="ni">🔔</span>コールバック<span class="nav-badge" id="cbBadge" style="display:none">0</span></button>
+    <button class="nav-item" onclick="showPage('logs',this)"><span class="ni">📋</span>ログ</button>
+    <div class="nav-group-label">ANALYTICS</div>
+    <button class="nav-item" onclick="showPage('kpi',this)"><span class="ni">📊</span>KPI</button>
+    <div class="nav-group-label">SYSTEM</div>
+    <button class="nav-item" onclick="showPage('settings',this)"><span class="ni">⚙️</span>設定</button>
+    <button class="nav-item" id="adminNavBtn" style="display:none" onclick="showPage('admin',this)">
+      <span class="ni">🔐</span>管理<span class="nav-admin-badge">ADMIN</span>
+    </button>
+  </div>
+  <div class="sidebar-bottom">
+    <div class="user-chip">
+      <div class="user-av-ph" id="userAv">?</div>
+      <div style="flex:1;min-width:0">
+        <div class="user-name" id="userName">—</div>
+        <span class="user-role-badge" id="userRoleBadge">—</span>
+      </div>
+      <button class="logout-btn" onclick="logout()">⏻</button>
+    </div>
+    <div id="staffPickWrap">
+      <div class="staff-label">担当者</div>
+      <select class="sel" id="staffSel"></select>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙 DARK</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="pageTitle">CALL</div>
+    <div class="topbar-r">
+      <div class="pulse"></div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </div>
+
+  <div class="pages">
+
+  <!-- ══ CALL PAGE ══ -->
+  <div class="page active" id="page-call">
+    <div class="call-layout">
+      <!-- 左：メイン操作 -->
+      <div style="display:flex;flex-direction:column;gap:0;overflow-y:auto">
+
+        <!-- 顧客選択 -->
+        <div class="customer-card" style="margin-bottom:10px">
+          <div style="font-size:9px;font-family:var(--mono);color:var(--tx3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">CUSTOMER</div>
+          <div class="customer-card-search">
+            <span class="c-search-icon">🔍</span>
+            <input class="c-search" id="cSearch" placeholder="名前・電話番号で検索..." oninput="searchC(this.value)" autocomplete="off">
+            <div class="c-dropdown" id="cDropdown"></div>
+          </div>
+          <div class="selected-c" id="selectedC">
+            <button class="clear-c-btn" onclick="clearC()">×</button>
+            <div class="selected-c-furi" id="scFuri" style="font-size:11px;color:var(--tx3);margin-bottom:1px;display:none"></div>
+            <div class="selected-c-name" id="scName">—</div>
+            <div class="selected-c-ph" id="scPh">—</div>
+            <div class="selected-c-ph" id="scMobileWrap" style="display:none">📱 <span id="scMobile"></span>
+              <button onclick="dial(selCust && selCust.mobile)" style="font-size:10px;font-family:var(--mono);background:rgba(0,212,255,.12);border:1px solid var(--ac);color:var(--ac);padding:1px 8px;border-radius:4px;cursor:pointer;margin-left:6px">携帯に発信</button>
+            </div>
+            <div class="selected-c-addr" id="scAddr"></div>
+          </div>
+          <!-- 発信ボタン -->
+          <div class="call-btn-wrap">
+            <button class="call-btn" id="callBtn" onclick="toggleCall()" title="クリックで発信">📞</button>
+          </div>
+          <div id="callStatus" style="text-align:center;font-size:10px;font-family:var(--mono);color:var(--tx3);margin-top:-6px">顧客を選択して発信</div>
+        </div>
+
+        <!-- フラグ -->
+        <div class="flag-section" style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="flag-sec-title" style="margin-bottom:0">FLAG</div>
+            <button onclick="clearFlag()" style="font-size:10px;font-family:var(--mono);background:none;border:1px solid var(--bd);color:var(--tx3);padding:2px 8px;border-radius:4px;cursor:pointer">✕ フラグ解除</button>
+          </div>
+          <div class="flag-grid" id="flagGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+          <div id="sfArea" style="display:none;margin-top:8px">
+            <div class="subflag-row" id="sfRow"></div>
+          </div>
+        </div>
+
+        <!-- メモ -->
+        <div class="memo-section" style="margin-bottom:10px">
+          <div class="memo-label">備考（選択中の相手の行に保存）</div>
+          <textarea class="memo-input" id="memoInp" placeholder="備考を入力...（記録すると選択中リストの相手の備考列に直接保存）"></textarea>
+        </div>
+
+        <!-- [v22] 参考情報（注意事項・コール履歴・初回会話履歴）スクロール表示 -->
+        <div class="memo-section" id="extraInfoSection" style="margin-bottom:10px;max-height:200px;overflow-y:auto;display:none">
+          <div class="memo-label">参考情報（読み取り）</div>
+          <div id="ix-note-wrap" style="margin-bottom:10px;display:none">
+            <div style="font-size:10px;color:var(--warn);font-family:var(--mono);margin-bottom:2px">⚠ 注意事項</div>
+            <div id="ix-note" style="font-size:12px;color:var(--tx);white-space:pre-wrap;line-height:1.5"></div>
+          </div>
+          <div id="ix-hist-wrap" style="margin-bottom:10px;display:none">
+            <div style="font-size:10px;color:var(--tx3);font-family:var(--mono);margin-bottom:2px">コール履歴</div>
+            <div id="ix-hist" style="font-size:12px;color:var(--tx2);white-space:pre-wrap;line-height:1.5"></div>
+          </div>
+          <div id="ix-first-wrap" style="display:none">
+            <div style="font-size:10px;color:var(--tx3);font-family:var(--mono);margin-bottom:2px">初回会話履歴</div>
+            <div id="ix-first" style="font-size:12px;color:var(--tx2);white-space:pre-wrap;line-height:1.5"></div>
+          </div>
+        </div>
+
+        <!-- コールバック（見込み時のみ） -->
+        <div class="cb-section" id="cbSection">
+          <div class="memo-label">CALLBACK DATE & TIME</div>
+          <input class="inp" type="datetime-local" id="cbInput">
+        </div>
+
+        <!-- [v15] 録音同意 -->
+        <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;font-size:11px;color:var(--tx2);cursor:pointer;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px">
+          <input type="checkbox" id="consentChk" style="width:15px;height:15px;margin-top:1px;cursor:pointer">
+          <span>📢 通話冒頭で「品質向上のため録音させていただきます」と案内し、同意を得たらチェック</span>
+        </label>
+
+        <!-- 記録ボタン -->
+        <button class="rec-btn" id="recBtn" onclick="submitLog()">◆ 記録する</button>
+      </div>
+
+      <!-- 右：ミニKPI＋コールバック＋リスト一覧＋選択中顧客 -->
+      <div style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;height:100%">
+
+        <!-- ミニKPI -->
+        <div class="side-kpi" style="flex-shrink:0">
+          <div class="skpi"><div class="skpi-num" id="s-total" style="color:var(--ac)">—</div><div class="skpi-label">架電</div></div>
+          <div class="skpi"><div class="skpi-num" id="s-mikomi" style="color:var(--ac2)">—</div><div class="skpi-label">見込み</div></div>
+          <div class="skpi"><div class="skpi-num" id="s-ng" style="color:var(--warn)">—</div><div class="skpi-label">趣旨NG率</div></div>
+          <div class="skpi"><div class="skpi-num" id="s-rusu" style="color:var(--tx2)">—</div><div class="skpi-label">留守率</div></div>
+        </div>
+
+        <!-- 選択中顧客の詳細 -->
+        <div style="background:var(--sf);border:1px solid var(--bd);border-radius:10px;overflow:hidden;flex-shrink:0">
+          <div style="padding:8px 12px;border-bottom:1px solid var(--bd2);font-size:9px;font-family:var(--mono);color:var(--tx3);letter-spacing:.12em;text-transform:uppercase">SELECTED CUSTOMER</div>
+          <div id="selectedCDetail" style="padding:12px">
+            <div style="font-size:11px;color:var(--tx3);font-family:var(--mono);text-align:center;padding:8px 0">顧客を選択してください</div>
+          </div>
+        </div>
+
+        <!-- 顧客リスト一覧 -->
+        <div style="background:var(--sf);border:1px solid var(--bd);border-radius:10px;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column">
+          <div style="padding:8px 12px;border-bottom:1px solid var(--bd2);font-size:9px;font-family:var(--mono);color:var(--tx3);letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <span>CUSTOMER LIST</span>
+            <span id="listCount" style="color:var(--ac)">0件</span>
+          </div>
+          <div id="customerListView" style="overflow-y:auto;flex:1"></div>
+        </div>
+
+        <!-- 本日コールバック -->
+        <div class="today-cb-box" style="flex-shrink:0">
+          <div class="tcb-head">TODAY CALLBACKS</div>
+          <div class="tcb-body" id="todayCbList"><div class="empty-state">なし</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ KPI PAGE ══ -->
+  <div class="page" id="page-kpi">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--tx3);font-family:var(--mono)">期間</span>
+      <input class="inp" type="date" id="kpiFrom" style="width:auto;padding:4px 6px;font-size:11px" onchange="loadKpi()">
+      <span style="color:var(--tx3);font-size:11px">〜</span>
+      <input class="inp" type="date" id="kpiTo" style="width:auto;padding:4px 6px;font-size:11px" onchange="loadKpi()">
+      <span style="font-size:10px;color:var(--tx3)">未指定＝全期間／期間を指定すると前期間比を表示</span>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-lbl">記録数</div><div class="kpi-num" id="k-total">—</div><div class="kpi-sub">全件 <span id="d-total" style="font-family:var(--mono)"></span></div></div>
+      <div class="kpi-card kc-r"><div class="kpi-lbl">接続率</div><div class="kpi-num" id="k-conn">—</div><div class="kpi-sub">接続÷全件 <span id="d-conn" style="font-family:var(--mono)"></span></div></div>
+      <div class="kpi-card kc-g"><div class="kpi-lbl">成約率</div><div class="kpi-num" id="k-close">—</div><div class="kpi-sub">成約÷有効電話 <span id="d-close" style="font-family:var(--mono)"></span></div></div>
+      <div class="kpi-card kc-w"><div class="kpi-lbl">成約数</div><div class="kpi-num" id="k-seiyaku">—</div><div class="kpi-sub">件 <span id="d-seiyaku" style="font-family:var(--mono)"></span></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><div class="chart-title">FLAG BREAKDOWN</div><canvas id="flagChart"></canvas></div>
+      <div class="chart-box"><div class="chart-title">DAILY CALLS</div><canvas id="dailyChart"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><div class="chart-title">STAFF RANKING</div><canvas id="staffChart"></canvas></div>
+      <div class="chart-box"><div class="chart-title">HOURLY</div><canvas id="hourChart"></canvas></div>
+    </div>
+    <div class="sec" style="margin-top:14px">
+      <div class="sec-head"><div class="sec-title">担当別</div></div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>担当</th><th>記録</th><th>接続</th><th>接続率</th><th>成約</th><th>成約率</th></tr></thead>
+          <tbody id="staffKpiBody"><tr><td colspan="6" class="empty-state">—</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CALLBACK PAGE ══ -->
+  <div class="page" id="page-callback">
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">🔔 CALLBACK SCHEDULE</div></div>
+      <div class="sec-body" id="cbList"><div class="empty-state">読み込み中...</div></div>
+    </div>
+  </div>
+
+  <!-- ══ LOG PAGE ══ -->
+  <div class="page" id="page-logs">
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title">CALL LOGS</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select class="sel" id="logStaff" style="width:auto;padding:4px 8px;font-size:11px" onchange="loadLogs()"><option value="">全員</option></select>
+          <select class="sel" id="logFlag" style="width:auto;padding:4px 8px;font-size:11px" onchange="loadLogs()"><option value="">全フラグ</option></select>
+          <input class="inp" id="logPhone" placeholder="電話番号で検索（1件抽出）" style="width:auto;padding:4px 8px;font-size:11px" onkeyup="if(event.key==='Enter')loadLogs()" onchange="loadLogs()">
+          <input class="sel" type="date" id="logFrom" title="開始日" style="width:auto;padding:4px 6px;font-size:11px" onchange="loadLogs()">
+          <span style="color:var(--tx3);font-size:11px">〜</span>
+          <input class="sel" type="date" id="logTo" title="終了日" style="width:auto;padding:4px 6px;font-size:11px" onchange="loadLogs()">
+          <button class="btn-ghost" id="logExportBtn" onclick="exportLogs()" style="white-space:nowrap">⬇ CSV抽出</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>日時</th><th>担当</th><th>顧客</th><th>フラグ</th><th>詳細</th><th>メモ</th><th>CB</th></tr></thead>
+          <tbody id="logBody"><tr><td colspan="7" class="empty-state">読み込み中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SETTINGS PAGE（全員） ══ -->
+  <div class="page" id="page-settings">
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">⚙ リスト選択</div></div>
+      <div class="sec-body">
+        <div style="margin-bottom:10px">
+          <div class="inp-label" style="margin-bottom:6px">使用するスプレッドシートリスト</div>
+          <select class="sel" id="activeSheetSel" onchange="changeActiveSheet(this.value)" style="margin-bottom:0"></select>
+        </div>
+        <div id="sheetLoadStatus" style="font-size:11px;font-family:var(--mono);color:var(--ac2);padding:6px 0"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">🎨 テーマ設定</div></div>
+      <div class="sec-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div id="theme-dark-btn" onclick="setTheme('dark')"
+            style="padding:16px;border-radius:10px;border:2px solid var(--bd);background:#060B14;cursor:pointer;text-align:center;transition:all .2s">
+            <div style="font-size:22px;margin-bottom:6px">🌙</div>
+            <div style="font-family:var(--mono);font-size:12px;color:#7BA3C4;font-weight:600">DARK MODE</div>
+            <div style="font-size:10px;color:#3A5A7A;margin-top:3px">近未来・黒基調</div>
+          </div>
+          <div id="theme-light-btn" onclick="setTheme('light')"
+            style="padding:16px;border-radius:10px;border:2px solid var(--bd);background:#F0F4F8;cursor:pointer;text-align:center;transition:all .2s">
+            <div style="font-size:22px;margin-bottom:6px">☀️</div>
+            <div style="font-family:var(--mono);font-size:12px;color:#4A6A8A;font-weight:600">LIGHT MODE</div>
+            <div style="font-size:10px;color:#8AAAC4;margin-top:3px">クリーン・白基調</div>
+          </div>
+        </div>
+        <div id="themeStatus" style="font-size:11px;font-family:var(--mono);color:var(--ac2);margin-top:10px;text-align:center"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ADMIN PAGE（管理者のみ） ══ -->
+  <div class="page" id="page-admin">
+
+    <!-- Zoom Phone連携 -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title">📞 電話システム連携</div>
+        <span id="phoneStatusBadge" style="font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:4px;background:rgba(255,184,0,.15);color:var(--warn)">未設定</span>
+      </div>
+      <div class="sec-body">
+        <div style="margin-bottom:12px">
+          <div class="inp-label">プロバイダー</div>
+          <select class="sel" id="phoneProvider" onchange="updatePhoneProvider()" style="margin-bottom:0">
+            <option value="">-- 選択してください --</option>
+            <option value="zoom">Zoom Phone</option>
+            <option value="twilio">Twilio</option>
+            <option value="other">その他</option>
+          </select>
+        </div>
+
+        <!-- [v11] クリック発信方式 ＆ テスト発信（契約不要・端末/PCのアプリを起動） -->
+        <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--ac);font-family:var(--mono);margin-bottom:8px">クリック発信（契約不要）</div>
+          <div class="inp-label">発信方式</div>
+          <select class="sel" id="dialModeSel" onchange="saveDialMode()">
+            <option value="tel">端末標準（tel:）</option>
+            <option value="zoom">Zoom（zoomphonecall:）</option>
+            <option value="callto">callto:</option>
+          </select>
+          <div class="inp-label" style="margin-top:8px">テスト発信（自分の番号でOK）</div>
+          <div style="display:flex;gap:8px">
+            <input class="inp" id="testDialNum" placeholder="09012345678" style="flex:1">
+            <button class="btn-primary" onclick="testDial()">発信テスト</button>
+          </div>
+          <div style="font-size:10px;color:var(--tx3);font-family:var(--mono);margin-top:6px;line-height:1.6">
+            スマホ：電話アプリが番号付きで開けばOK。<br>
+            PC：選んだ方式のアプリ（Zoom等）が起動すればOK。<br>
+            ※Zoom方式は実通話にZoom Phone契約が必要です（起動確認までは契約不要）。<br>
+            発信者IDは「Zoom Phone」を選び発信番号を保存すると自動付与されます。
+          </div>
+        </div>
+
+        <!-- Zoom Phone設定 -->
+        <div id="zoomPhoneSettings" style="display:none">
+          <div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--ac);font-family:var(--mono);margin-bottom:6px">ZOOM PHONE</div>
+            <div style="font-size:12px;color:var(--tx2);line-height:1.7">
+              会社でZoom Phone契約後、以下の情報を入力してください。<br>
+              Zoom管理コンソール → アプリ → OAuth → APIキーを取得
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div><div class="inp-label">Account ID</div><input class="inp" id="zoomAccountId" placeholder="Zoom Account ID"></div>
+            <div><div class="inp-label">Client ID</div><input class="inp" id="zoomClientId" placeholder="Zoom Client ID"></div>
+            <div><div class="inp-label">Client Secret</div><input class="inp" id="zoomClientSecret" placeholder="Zoom Client Secret" type="password"></div>
+            <div><div class="inp-label">発信番号</div><input class="inp" id="zoomFromNumber" placeholder="+81XXXXXXXXXX"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary" onclick="savePhoneSettings()">保存</button>
+            <button class="btn-ghost" onclick="testPhoneConnection()">接続テスト</button>
+          </div>
+          <div id="phoneTestResult" style="font-size:11px;font-family:var(--mono);margin-top:8px"></div>
+        </div>
+
+        <!-- Twilio設定 -->
+        <div id="twilioSettings" style="display:none">
+          <div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--pur);font-family:var(--mono);margin-bottom:6px">TWILIO</div>
+            <div style="font-size:12px;color:var(--tx2);line-height:1.7">
+              twilio.com でアカウント作成後、Console からAccount SIDとAuth Tokenを取得してください。
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div><div class="inp-label">Account SID</div><input class="inp" id="twilioSid" placeholder="ACxxxxxxxx"></div>
+            <div><div class="inp-label">Auth Token</div><input class="inp" id="twilioToken" placeholder="Auth Token" type="password"></div>
+            <div><div class="inp-label">発信番号</div><input class="inp" id="twilioFrom" placeholder="+81XXXXXXXXXX"></div>
+          </div>
+          <button class="btn-primary" onclick="savePhoneSettings()">保存</button>
+        </div>
+
+        <div id="phoneNotice" style="font-size:11px;color:var(--tx3);font-family:var(--mono);margin-top:8px;line-height:1.6">
+          電話システムを連携すると、コール画面の📞ボタンから直接発信できるようになります。<br>
+          現在は tel: リンク経由で発信します。
+        </div>
+      </div>
+    </div>
+
+    <!-- フラグ管理 -->
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">🚩 フラグ管理</div></div>
+      <div class="sec-body">
+        <div id="flagAdminList" style="margin-bottom:12px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+          <div>
+            <div class="inp-label">フラグ名</div>
+            <input class="inp" id="newFlagName" placeholder="例：折り返し希望">
+          </div>
+          <div>
+            <div class="inp-label">カラー</div>
+            <input type="color" id="newFlagColor" value="#00D4FF" style="width:100%;height:36px;border:1px solid var(--bd);border-radius:6px;background:var(--sf2);cursor:pointer;padding:2px">
+          </div>
+          <button class="btn-primary" onclick="addFlag()">追加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- スプレッドシート管理 -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title">📑 スプレッドシート管理</div>
+        <button class="btn-primary" id="publishAssignBtn" onclick="publishAssignments()" style="font-size:11px;padding:6px 12px">反映する（配信）</button>
+      </div>
+      <div class="sec-body">
+        <div id="assignDirtyNote" style="display:none;font-size:11px;color:var(--warn);margin-bottom:8px">● 未反映の割り当て変更があります。「反映する」を押すとオペレーターに配信されます（各オペレーターは再読み込みで反映）。</div>
+        <div id="sheetAdminList" style="margin-bottom:12px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><div class="inp-label">リスト名</div><input class="inp" id="aSheetName" placeholder="例：6月リスト"></div>
+          <div><div class="inp-label">URL または ID</div><input class="inp" id="aSheetUrl" placeholder="URLをそのまま貼り付けてOK"></div>
+          <div><div class="inp-label">シート名（タブ名）</div><input class="inp" id="aSheetTab" value="シート1"></div>
+          <div><div class="inp-label">開始行</div><input class="inp" type="number" id="aSheetStart" value="2"></div>
+          <div><div class="inp-label">名前の列</div><input class="inp" id="aColName" value="A"></div>
+          <div><div class="inp-label">フリガナの列（複数可・カンマ区切り 例：D,E）</div><input class="inp" id="aColFurigana" placeholder="例：D,E（任意）"></div>
+          <div><div class="inp-label">電話番号の列</div><input class="inp" id="aColPhone" value="B"></div>
+          <div><div class="inp-label">携帯電話の列</div><input class="inp" id="aColMobile" placeholder="例：H（任意）"></div>
+          <div><div class="inp-label">住所の列</div><input class="inp" id="aColAddr" value="C"></div>
+          <div><div class="inp-label">備考の列</div><input class="inp" id="aColMemo" value="A"></div>
+          <div><div class="inp-label">注意事項の列</div><input class="inp" id="aColNote" placeholder="例：E（任意）"></div>
+          <div><div class="inp-label">コール履歴の列</div><input class="inp" id="aColHist" placeholder="例：F（任意）"></div>
+          <div><div class="inp-label">初回会話履歴の列</div><input class="inp" id="aColFirst" placeholder="例：G（任意）"></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--tx2);cursor:pointer">
+          <input type="checkbox" id="aZeroPad" style="width:16px;height:16px;cursor:pointer">
+          電話番号の先頭0を補完する（このリストはExcel等で先頭0が消えている場合）
+        </label>
+        <button class="btn-primary" style="margin-top:10px;width:100%" onclick="addAdminSheet()">◆ 追加 & 読み込み</button>
+      </div>
+    </div>
+
+    <!-- 架電者管理 -->
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">👤 架電者管理</div></div>
+      <div class="sec-body">
+        <div id="staffAdminList" style="margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px">
+          <input class="inp" id="newStaffName" placeholder="新しい架電者名" style="flex:1">
+          <button class="btn-primary" onclick="addStaff()">追加</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  </div><!-- /pages -->
+
+  <!-- ボトムバー -->
+  <div class="bottom-bar" id="bottomBar">
+    <button class="bb-btn" onclick="showPage('kpi',null);highlightBb('kpi')">📊 KPI</button>
+    <button class="bb-btn" onclick="showPage('callback',null);highlightBb('cb')">🔔 コールバック</button>
+    <button class="bb-btn" onclick="showPage('logs',null);highlightBb('log')">📋 ログ</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════
+   CONFIG
+══════════════════════════════════ */
+const SB_URL = 'https://srfyrnqigovijompbigs.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZnlybnFpZ292aWpvbXBiaWdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MDY2MDcsImV4cCI6MjA5NjM4MjYwN30.hhFfAfXb_td8jCzyjuRJTFsI9WVioEmU7s5VoplpNFc';
+const GK = 'AIzaSyBTwDKt31XY1K47E5zbR9Cx_V3gQK8dh9E';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzMXEXjSxGjROu0dv8WhEy8DcaRmGpwNUMvn-4LSmmP1F10ENgDiCVe3r9Ke4W1oMi0JQ/exec';
+const ADMIN = 'good7luck7voi7@gmail.com';
+// [v8] GAS書き込み用：mode はデフォルト(cors)。Content-Type を text/plain にすると
+// 「単純リクエスト」扱いになりプリフライト(OPTIONS)が発生しないため、GASでも応答を読み取れる。
+// → 成否をブラウザ側で確認できる（no-cors の不透明レスポンス問題を解消）。
+async function gasPost(payload) {
+  const res = await fetch('/api/gas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('GAS HTTP ' + res.status);
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error('GASがJSON以外を返しました（デプロイ/権限を確認）: ' + text.slice(0, 120)); }
+  if (data && data.ok === false) throw new Error(data.error || 'GAS側で処理失敗');
+  return data;
+}
+// [v10] 現在アクティブなリストのスプレッドシートID/タブ（書き込み先をGASに伝える）
+function curSheetRef() {
+  const s = (typeof sheets !== 'undefined' && sheets[activeSheetIdx]) || {};
+  return { sheetId: s.id ? extractId(s.id) : '', tab: s.tab || 'シート1' };
+}
+const { createClient } = supabase;
+const db = createClient(SB_URL, SB_KEY);
+
+/* ══════════════════════════════════
+   STATE
+══════════════════════════════════ */
+let user = null, isAdmin = false;
+let myStaffId = null, myRole = 'operator'; // [v15] ログイン中のGoogleアカウントに紐づく架電者
+let selFlag = '', selSf = '', selCust = null;
+let staffList = [], customers = [];
+let sheets = JSON.parse(localStorage.getItem('tc_sheets') || '[]');
+let flags = JSON.parse(localStorage.getItem('tc_flags') || JSON.stringify([
+  {name:'留守1', color:'#8B949E'},
+  {name:'留守2', color:'#6E7681'},
+  {name:'アプローチNG', color:'#FF4466'},
+  {name:'趣旨NG', color:'#FFB800'},
+  {name:'置き場所NG', color:'#A855F7'},
+  {name:'その他NG', color:'#6E7681'},
+  {name:'見込み', color:'#00FF88'},
+  {name:'成約', color:'#FFD700'},
+]));
+let activeSheetIdx = parseInt(localStorage.getItem('tc_activeSheet') || '0');
+let charts = {}, notifiedIds = new Set(JSON.parse(localStorage.getItem('tc_notified') || '[]'));
+let isCalling = false;
+
+const SUB_FLAGS = {
+  '留守1':['録音','名前と要件','電源'],
+  '留守2':['録音','名前と要件','電波なし'],
+  'アプローチNG':['不審','高齢','即切り','録音','入院中'],
+  '趣旨NG':['高齢','録音','必要ない','面倒','御臨終'],
+  '置き場所NG':['高齢','転勤族'],
+  'その他NG':['無効','着拒'],
+  '見込み':['通電','仕事前','旦那不在','アプローチ見込み'],
+};
+
+/* ══════════════════════════════════
+   INIT
+══════════════════════════════════ */
+window.onload = async () => {
+  // [v19] ログイン失敗を無言にせず可視化
+  const authErr = getUrlAuthError();
+  if (authErr) showLoginError(authErr);
+  try {
+    const { data:{ session }, error } = await db.auth.getSession();
+    if (error) { showLoginError('セッション取得エラー: ' + error.message); showLogin(); }
+    else if (session) await bootApp(session);
+    else showLogin();
+  } catch (e) {
+    showLoginError('起動エラー: ' + (e?.message || e));
+    showLogin();
+  }
+  db.auth.onAuthStateChange(async (ev, session) => {
+    try {
+      if (ev === 'SIGNED_IN' && session) await bootApp(session);
+      else if (ev === 'SIGNED_OUT') showLogin();
+    } catch (e) {
+      showLoginError('ログイン処理エラー: ' + (e?.message || e));
+      showLogin();
+    }
+  });
+};
+function getUrlAuthError() {
+  try {
+    const h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+    const q = new URLSearchParams(location.search || '');
+    const ed = h.get('error_description') || q.get('error_description') || h.get('error') || q.get('error');
+    return ed ? decodeURIComponent(ed.replace(/\+/g, ' ')) : '';
+  } catch { return ''; }
+}
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  if (el) { el.textContent = '⚠ ' + msg; el.style.display = 'block'; }
+  console.error('[auth]', msg);
+}
+
+async function bootApp(session) {
+  user = session.user;
+  await ensureMyStaff();                                   // [v15] Googleアカウント→架電者(staff)を自動紐付け
+  isAdmin = (user.email === ADMIN) || (myRole === 'admin'); // [v15] ロール判定
+  document.getElementById('loginScreen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.style.display = 'grid';
+  setTimeout(() => app.classList.add('ready'), 50);
+  // ユーザー情報
+  const name = user.user_metadata?.full_name || user.email;
+  const av = user.user_metadata?.avatar_url;
+  document.getElementById('userName').textContent = name;
+  const roleBadge = document.getElementById('userRoleBadge');
+  roleBadge.textContent = isAdmin ? 'ADMIN' : 'OPERATOR';
+  roleBadge.className = 'user-role-badge ' + (isAdmin ? 'role-admin' : 'role-op');
+  const avEl = document.getElementById('userAv');
+  if (av) avEl.outerHTML = `<img class="user-av" id="userAv" src="${av}">`;
+  else avEl.textContent = name.charAt(0).toUpperCase();
+  // 管理メニュー表示
+  if (isAdmin) document.getElementById('adminNavBtn').style.display = 'flex';
+  // [v28] サイドバー折りたたみ状態を復元
+  if (localStorage.getItem('tc_navmin') === '1') {
+    app.classList.add('nav-min');
+    const t = document.querySelector('.nav-toggle'); if (t) t.textContent = '»';
+  }
+  // [v15] 架電者はGoogleアカウントに自動紐付け → 手動選択は隠す
+  const sp = document.getElementById('staffPickWrap');
+  if (sp) sp.style.display = 'none';
+  // [v15] 通話ログの全件CSV抽出は管理者のみ
+  const exBtn = document.getElementById('logExportBtn');
+  if (exBtn) exBtn.style.display = isAdmin ? '' : 'none';
+  // 今日の日付
+  document.getElementById('todayDate').textContent =
+    new Date().toLocaleDateString('ja-JP',{month:'2-digit',day:'2-digit',weekday:'short'});
+  startClock();
+  // テーマ復元
+  const savedTheme = localStorage.getItem('tc_theme') || 'dark';
+  document.body.dataset.theme = savedTheme;
+  document.getElementById('themeBtn').textContent = savedTheme === 'dark' ? '🌙 DARK' : '☀️ LIGHT';
+  await loadStaff();
+  await loadConfig();
+  renderFlags();
+  renderSettingsSheetSel();
+  if (sheets.length > 0) {
+    const startIdx = canSeeSheet(sheets[activeSheetIdx]) ? activeSheetIdx : firstVisibleIdx(); // [v17] 可視リストを開く
+    if (startIdx >= 0) { activeSheetIdx = startIdx; await loadSheet(sheets[startIdx]); }
+  }
+  loadTodayKpi();
+  loadTodayCallbacks();
+  startAlarmChecker();
+  requestNotificationPermission();
+}
+
+// [v15/v20] ログイン中のGoogleアカウントを staff に紐付け。
+// email列が未設定の環境でも必ず1行作られるようフォールバックする。
+async function ensureMyStaff() {
+  myStaffId = null; myRole = 'operator';
+  if (!user?.email) return;
+  const email = user.email;
+  const name = user.user_metadata?.full_name || email;
+  try {
+    let me = null;
+    // 1) emailで検索（email列が無い環境ではdata=nullで素通り）
+    const r0 = await db.from('staff').select('*').eq('email', email).limit(1);
+    if (r0.data && r0.data[0]) me = r0.data[0];
+    // 2) 同名の既存に紐付け
+    if (!me) {
+      const rn = await db.from('staff').select('*').eq('name', name).limit(1);
+      if (rn.data && rn.data[0]) {
+        me = rn.data[0];
+        await db.from('staff').update({ email }).eq('id', me.id); // email列が無ければ無視される
+      }
+    }
+    // 3) 新規作成（email付き→失敗時はnameのみで必ず作成）
+    if (!me) {
+      const r1 = await db.from('staff').insert({ name, email }).select().single();
+      if (r1.data) me = r1.data;
+      else {
+        const r2 = await db.from('staff').insert({ name }).select().single();
+        me = r2.data;
+      }
+    }
+    myStaffId = me?.id || null;
+    myRole = me?.role || 'operator';
+  } catch (e) {
+    console.warn('ensureMyStaff失敗:', e);
+  }
+}
+
+async function loginGoogle() {
+  // [v18] 毎回アカウント選択を強制 / [v21] 戻り先は#や?を除いたクリーンURL（前回トークンの混入を防止）
+  const cleanUrl = window.location.origin + window.location.pathname;
+  await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: cleanUrl,
+      queryParams: { prompt: 'select_account' }
+    }
+  });
+}
+async function logout() { await db.auth.signOut(); location.reload(); }
+// [v28] サイドバーの縮小/拡大
+function toggleNav() {
+  const app = document.getElementById('app');
+  const min = app.classList.toggle('nav-min');
+  localStorage.setItem('tc_navmin', min ? '1' : '0');
+  const t = document.querySelector('.nav-toggle'); if (t) t.textContent = min ? '»' : '«';
+}
+function showLogin() { document.getElementById('loginScreen').style.display='flex'; }
+
+/* ══════════════════════════════════
+   CLOCK / THEME
+══════════════════════════════════ */
+function startClock() {
+  setInterval(()=>{
+    document.getElementById('clock').textContent =
+      new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }, 1000);
+}
+function toggleTheme() {
+  const d = document.body.dataset.theme === 'dark';
+  const newTheme = d ? 'light' : 'dark';
+  document.body.dataset.theme = newTheme;
+  document.getElementById('themeBtn').textContent = d ? '☀️ LIGHT' : '🌙 DARK';
+  localStorage.setItem('tc_theme', newTheme);
+  if (charts.flag) loadKpi();
+}
+
+/* ══════════════════════════════════
+   PAGE
+══════════════════════════════════ */
+const PT = {call:'CALL',kpi:'KPI DASHBOARD',callback:'CALLBACK',logs:'CALL LOGS',settings:'SETTINGS',admin:'ADMIN'};
+function showPage(name, el) {
+  if (name === 'admin' && !isAdmin) { showToast('管理者のみが利用できます', true); return; } // [v15]
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('pageTitle').textContent = PT[name]||name;
+  if (name==='kpi') loadKpi();
+  if (name==='callback') loadCallbacks();
+  if (name==='logs') loadLogs();
+  if (name==='admin') { loadStaff().then(()=>{ renderFlagAdmin(); renderSheetAdmin(); renderStaffAdmin(); loadPhoneSettings(); }); }
+  if (name==='settings') updateThemeBtns(document.body.dataset.theme);
+}
+function highlightBb(key) {
+  document.querySelectorAll('.bb-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+
+/* ══════════════════════════════════
+   STAFF
+══════════════════════════════════ */
+async function loadStaff() {
+  const { data } = await db.from('staff').select('*').order('name');
+  if (!data) return;
+  staffList = data;
+  const sel = document.getElementById('staffSel');
+  const logF = document.getElementById('logStaff');
+  sel.innerHTML = '<option value="">選択...</option>';
+  logF.innerHTML = '<option value="">全員</option>';
+  data.forEach(s => {
+    sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+    logF.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+  });
+  // 自動マッチ
+  const uname = user?.user_metadata?.full_name || '';
+  const m = data.find(s => uname.includes(s.name) || s.name.includes(uname.split(' ')[0]));
+  if (m) sel.value = m.id;
+}
+async function addStaff() {
+  const name = document.getElementById('newStaffName').value.trim();
+  if (!name) return;
+  await db.from('staff').insert({name});
+  document.getElementById('newStaffName').value = '';
+  await loadStaff(); renderStaffAdmin(); showToast('架電者を追加しました');
+}
+async function renderStaffAdmin() {
+  const { data } = await db.from('staff').select('*').order('name');
+  const el = document.getElementById('staffAdminList');
+  if (!data?.length) { el.innerHTML='<div class="empty-state">架電者がいません</div>'; return; }
+  el.innerHTML = data.map(s => `
+    <div class="row-item">
+      <div><div class="row-item-name">${s.name}</div><div class="row-item-sub">${s.email||'（未紐付け）'}</div></div>
+      <div class="row-actions" style="display:flex;gap:6px;align-items:center">
+        <select class="sel" style="width:auto;padding:2px 6px;font-size:11px" onchange="setStaffRole('${s.id}', this.value)">
+          <option value="operator" ${s.role!=='admin'?'selected':''}>オペレーター</option>
+          <option value="admin" ${s.role==='admin'?'selected':''}>管理者</option>
+        </select>
+        <button class="btn-danger" onclick="deleteStaff('${s.id}')">削除</button>
+      </div>
+    </div>`).join('');
+}
+async function setStaffRole(id, role) {
+  await db.from('staff').update({ role }).eq('id', id);
+  showToast('権限を更新しました（' + (role==='admin'?'管理者':'オペレーター') + '）');
+  renderStaffAdmin();
+}
+async function deleteStaff(id) {
+  if (!confirm('削除しますか？')) return;
+  await db.from('staff').delete().eq('id',id);
+  await loadStaff(); renderStaffAdmin();
+}
+
+/* ══════════════════════════════════
+   FLAGS
+══════════════════════════════════ */
+function saveFlags() { cfgSave('flags', flags); }
+function renderFlags() {
+  const grid = document.getElementById('flagGrid');
+  const isMikomi = f => f.name === '見込み';
+  grid.innerHTML = flags.map((f,i) => `
+    <button class="flag-btn${isMikomi(f)?' f-mikomi':''}"
+      style="${isMikomi(f)?'grid-column:span 3':''}"
+      onclick="selectFlag('${f.name}',this,'${f.color}')"
+      data-flag="${f.name}">
+      ${f.name}
+    </button>`).join('');
+  // ログフィルターも更新
+  const logFlag = document.getElementById('logFlag');
+  const cur = logFlag.value;
+  logFlag.innerHTML = '<option value="">全フラグ</option>' + flags.map(f=>`<option value="${f.name}">${f.name}</option>`).join('');
+  logFlag.value = cur;
+}
+function renderFlagAdmin() {
+  const el = document.getElementById('flagAdminList');
+  if (!flags.length) { el.innerHTML='<div class="empty-state">フラグがありません</div>'; return; }
+  el.innerHTML = flags.map((f,i) => `
+    <div class="row-item">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="color-dot" style="background:${f.color}"></span>
+        <div class="row-item-name">${f.name}</div>
+      </div>
+      <div class="row-actions">
+        <button class="btn-danger" onclick="deleteFlag(${i})">削除</button>
+      </div>
+    </div>`).join('');
+}
+function addFlag() {
+  const name = document.getElementById('newFlagName').value.trim();
+  const color = document.getElementById('newFlagColor').value;
+  if (!name) { showToast('フラグ名を入力してください', true); return; }
+  if (flags.find(f => f.name === name)) { showToast('同じ名前のフラグがあります', true); return; }
+  flags.push({name, color});
+  saveFlags();
+  document.getElementById('newFlagName').value = '';
+  renderFlags(); renderFlagAdmin();
+  showToast(`「${name}」を追加しました`);
+}
+function deleteFlag(i) {
+  if (!confirm(`「${flags[i].name}」を削除しますか？`)) return;
+  flags.splice(i,1); saveFlags();
+  renderFlags(); renderFlagAdmin();
+}
+function selectFlag(name, el, color) {
+  if (selFlag === name) { clearFlag(); return; } // [v25] 同じフラグを再クリックで解除
+  selFlag = name; selSf = '';
+  document.querySelectorAll('.flag-btn').forEach(b => {
+    b.classList.remove('sel-flag');
+    b.style.borderColor = '';
+    b.style.background = '';
+    b.style.color = '';
+  });
+  el.classList.add('sel-flag');
+  el.style.borderColor = color;
+  el.style.background = color + '22';
+  el.style.color = color;
+  // サブフラグ
+  const subs = SUB_FLAGS[name] || [];
+  const sfArea = document.getElementById('sfArea');
+  if (subs.length) {
+    document.getElementById('sfRow').innerHTML = subs.map(s =>
+      `<div class="sf-chip" onclick="selectSf(this,'${s}')">${s}</div>`).join('');
+    sfArea.style.display = 'block';
+  } else { sfArea.style.display = 'none'; }
+  // コールバック欄
+  document.getElementById('cbSection').style.display = name === '見込み' ? 'block' : 'none';
+  applyFlagToMemo();
+}
+// [v25] フラグ選択を解除（誤選択時のクリア）
+function clearFlag() {
+  selFlag = ''; selSf = '';
+  document.querySelectorAll('.flag-btn').forEach(b => {
+    b.classList.remove('sel-flag'); b.style.borderColor=''; b.style.background=''; b.style.color='';
+  });
+  document.querySelectorAll('.sf-chip').forEach(c => c.classList.remove('sel-sf'));
+  const sfArea = document.getElementById('sfArea'); if (sfArea) sfArea.style.display = 'none';
+  const cb = document.getElementById('cbSection'); if (cb) cb.style.display = 'none';
+}
+function selectSf(el, sf) {
+  if (selSf === sf) { selSf = ''; el.classList.remove('sel-sf'); return; } // [v25] 再クリックで解除
+  document.querySelectorAll('.sf-chip').forEach(c => c.classList.remove('sel-sf'));
+  el.classList.add('sel-sf'); selSf = sf;
+  applyFlagToMemo();
+}
+// [v23] フラグ→備考の自動記入は廃止（備考は手入力のみ）。互換のため関数は残すが何もしない。
+function applyFlagToMemo() { /* no-op */ }
+
+/* ══════════════════════════════════
+   CALL BUTTON
+══════════════════════════════════ */
+function toggleCall() {
+  const ph = selCust?.phone;
+  if (!ph) { showToast('顧客を選択してください', true); return; }
+  if (!isCalling) {
+    isCalling = true;
+    const btn = document.getElementById('callBtn');
+    btn.textContent = '📵';
+    btn.classList.add('calling');
+    document.getElementById('callStatus').textContent = `発信中: ${ph}`;
+    dial(ph); // [v11] 選択した発信方式で発信
+  } else {
+    isCalling = false;
+    const btn = document.getElementById('callBtn');
+    btn.textContent = '📞';
+    btn.classList.remove('calling');
+    document.getElementById('callStatus').textContent = '通話終了 — フラグを記録してください';
+  }
+}
+// [v11] 発信方式に応じたURIを組み立てて発信。[v12] Zoomは発信者ID(callerid)を付与可能。
+function dialURI(number) {
+  const settings = JSON.parse(localStorage.getItem('tc_phone') || '{}');
+  const mode = settings.dialMode || 'tel';
+  const n = String(number).replace(/[^\d+]/g, ''); // 数字と + のみ
+  if (mode === 'zoom') {
+    // 電話設定の「発信番号」があれば callerid として付与:
+    //   zoomphonecall:<番号>?callerid=<発信番号>
+    const cid = (settings.fromNumber || '').replace(/[^\d+]/g, '');
+    return cid ? `zoomphonecall:${n}?callerid=${cid}` : `zoomphonecall:${n}`;
+    // ※より安全なJWT方式（zoomphonecall://<番号>?cat=seccall&token=<JWT>）は
+    //   Zoom Phone契約後にサーバー側でJWT署名する形で対応可能。
+  }
+  if (mode === 'callto') return `callto:${n}`;
+  return `tel:${n}`;
+}
+function dial(number) {
+  if (!number) { showToast('番号がありません', true); return; }
+  window.location.href = dialURI(number);
+}
+function testDial() {
+  const n = (document.getElementById('testDialNum')?.value || '').trim();
+  if (!n) { showToast('番号を入力してください', true); return; }
+  showToast('発信を試行: ' + dialURI(n));
+  dial(n);
+}
+function saveDialMode() {
+  const mode = document.getElementById('dialModeSel')?.value || 'tel';
+  const settings = JSON.parse(localStorage.getItem('tc_phone') || '{}');
+  settings.dialMode = mode;
+  localStorage.setItem('tc_phone', JSON.stringify(settings));
+  showToast('発信方式を保存しました（' + mode + '）');
+}
+
+/* ══════════════════════════════════
+   CUSTOMER
+══════════════════════════════════ */
+function searchC(q) {
+  const dd = document.getElementById('cDropdown');
+  if (!q.trim()) { dd.style.display='none'; return; }
+  const hits = customers.filter(c =>
+    c.name.includes(q) || c.phone.replace(/-/g,'').includes(q.replace(/-/g,''))
+  ).slice(0,10);
+  if (!hits.length) { dd.style.display='none'; return; }
+  dd.innerHTML = hits.map(c => `
+    <div class="c-opt" onclick='pickC(${JSON.stringify(c)})'>
+      <div class="c-opt-name">${c.name}</div>
+      <div class="c-opt-ph">${c.phone}　${c.address||''}</div>
+    </div>`).join('');
+  dd.style.display = 'block';
+}
+// [v22] 参考情報フィールドの表示切替
+function setExtra(id, val) {
+  const f = document.getElementById(id), w = document.getElementById(id + '-wrap');
+  if (!f || !w) return;
+  f.textContent = val || '';
+  w.style.display = val ? 'block' : 'none';
+}
+function pickC(c) {
+  selCust = c;
+  document.getElementById('cSearch').value = '';
+  document.getElementById('cDropdown').style.display = 'none';
+  document.getElementById('scName').textContent = c.name || '（名前なし）';
+  document.getElementById('scPh').textContent = c.phone;
+  // [v26] フリガナ・携帯電話
+  const fu = document.getElementById('scFuri');
+  if (fu) { fu.textContent = c.furigana || ''; fu.style.display = c.furigana ? 'block' : 'none'; }
+  const mw = document.getElementById('scMobileWrap'), mob = document.getElementById('scMobile');
+  if (mw && mob) { mob.textContent = c.mobile || ''; mw.style.display = c.mobile ? 'block' : 'none'; }
+  document.getElementById('scAddr').textContent = c.address || '';
+  document.getElementById('selectedC').style.display = 'block';
+  document.getElementById('callStatus').textContent = `${c.name} — 📞ボタンで発信`;
+  // 備考欄に既存の備考を表示（直接編集→記録で相手の行に保存）
+  const bikoInp = document.getElementById('memoInp');
+  if (bikoInp) bikoInp.value = c.備考 || '';
+  // [v22] 参考情報（注意事項・コール履歴・初回会話履歴）
+  setExtra('ix-note', c.注意事項);
+  setExtra('ix-hist', c.コール履歴);
+  setExtra('ix-first', c.初回会話履歴);
+  document.getElementById('extraInfoSection').style.display =
+    (c.注意事項 || c.コール履歴 || c.初回会話履歴) ? 'block' : 'none';
+
+  const contractedTag = c.isYellow
+    ? `<span style="font-size:10px;font-family:var(--mono);background:rgba(255,215,0,.2);color:#FFD700;border:1px solid rgba(255,215,0,.4);padding:2px 8px;border-radius:4px;margin-left:6px">✓ 成約済み</span>`
+    : '';
+  // SELECTED CUSTOMERエリアは名前のみ表示（＋成約/選択解除ボタン）
+  document.getElementById('selectedCDetail').innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:22px;font-weight:700;color:var(--ac)">${c.name||'（名前なし）'}${contractedTag}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${!c.isYellow
+        ? `<button onclick="setContracted()" style="font-size:11px;font-family:var(--mono);background:rgba(255,215,0,.15);border:1px solid rgba(255,215,0,.5);color:#FFD700;padding:5px 12px;border-radius:4px;cursor:pointer">🏆 成約</button>`
+        : `<button onclick="cancelContracted()" style="font-size:11px;font-family:var(--mono);background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.4);color:var(--dng);padding:5px 12px;border-radius:4px;cursor:pointer">↩ 成約取り消し</button>`
+      }
+      <button onclick="clearC()" style="font-size:11px;font-family:var(--mono);background:none;border:1px solid var(--bd);color:var(--tx3);padding:5px 12px;border-radius:4px;cursor:pointer">× 選択解除</button>
+    </div>
+  `;
+  // リスト内でハイライト
+  document.querySelectorAll('.clist-row').forEach(r => r.classList.remove('clist-active'));
+  const row = document.querySelector(`.clist-row[data-phone="${c.phone}"]`);
+  if (row) { row.classList.add('clist-active'); row.scrollIntoView({block:'nearest'}); }
+}
+function clearC() {
+  selCust = null;
+  document.getElementById('selectedC').style.display = 'none';
+  document.getElementById('cSearch').value = '';
+  const ex = document.getElementById('extraInfoSection'); if (ex) ex.style.display = 'none';
+  const fw = document.getElementById('scFuri'); if (fw) fw.style.display = 'none';
+  const mw = document.getElementById('scMobileWrap'); if (mw) mw.style.display = 'none';
+  const mi = document.getElementById('memoInp'); if (mi) mi.value = '';
+  document.getElementById('callStatus').textContent = '顧客を選択して発信';
+  document.getElementById('selectedCDetail').innerHTML =
+    '<div style="font-size:11px;color:var(--tx3);font-family:var(--mono);text-align:center;padding:8px 0">顧客を選択してください</div>';
+  document.querySelectorAll('.clist-row').forEach(r => r.classList.remove('clist-active'));
+}
+
+// 成約：スプレッドシートの行を黄色に
+async function setContracted() {
+  if (!selCust?.row) { showToast('行番号が取得できません', true); return; }
+  try {
+    await gasPost({ action: 'setYellow', row: selCust.row, ...curSheetRef() });
+    selCust.isYellow = true;
+    // ローカルのcustomers配列も更新
+    const idx = customers.findIndex(c => c.phone === selCust.phone);
+    if (idx >= 0) customers[idx].isYellow = true;
+    pickC(selCust);
+    renderCustomerList();
+    showToast('成約しました 🏆');
+  } catch(e) { console.error('成約エラー:', e); showToast('成約の書き込みに失敗: ' + e.message, true); }
+}
+
+// 成約取り消し：スプレッドシートの色をクリア
+async function cancelContracted() {
+  if (!selCust?.row) { showToast('行番号が取得できません', true); return; }
+  if (!confirm('成約を取り消しますか？')) return;
+  try {
+    await gasPost({ action: 'clearColor', row: selCust.row, ...curSheetRef() });
+    selCust.isYellow = false;
+    const idx = customers.findIndex(c => c.phone === selCust.phone);
+    if (idx >= 0) customers[idx].isYellow = false;
+    pickC(selCust);
+    renderCustomerList();
+    showToast('成約を取り消しました');
+  } catch(e) { console.error('取消エラー:', e); showToast('取り消しに失敗: ' + e.message, true); }
+}
+function renderCustomerList() {
+  const el = document.getElementById('customerListView');
+  const countEl = document.getElementById('listCount');
+  if (!el) return;
+  if (!customers.length) {
+    el.innerHTML = '<div style="padding:16px;text-align:center;font-size:11px;color:var(--tx3);font-family:var(--mono)">リストを読み込んでください</div>';
+    if (countEl) countEl.textContent = '0件';
+    return;
+  }
+  if (countEl) countEl.textContent = customers.length + '件';
+  el.innerHTML = customers.map(c => {
+    const contractedTag = c.isYellow
+      ? `<span style="font-size:9px;font-family:var(--mono);background:rgba(255,215,0,.2);color:#FFD700;border:1px solid rgba(255,215,0,.4);padding:1px 6px;border-radius:3px;margin-left:5px">成約</span>`
+      : '';
+    const rowBg = c.isYellow ? 'rgba(255,215,0,.05)' : '';
+    return `<div class="clist-row" data-phone="${c.phone}" onclick='pickC(${JSON.stringify(c).replace(/'/g,"&#39;")})'
+      style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--bd2);cursor:pointer;transition:background .15s;background:${rowBg}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${c.name||'—'}${contractedTag}
+        </div>
+        <div style="font-size:13px;color:var(--tx3);font-family:var(--mono)">${c.phone||'—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+  // ホバー
+  document.querySelectorAll('.clist-row').forEach(r => {
+    r.addEventListener('mouseenter', () => { if (!r.classList.contains('clist-active')) r.style.background = r.style.background || 'var(--bd2)'; });
+    r.addEventListener('mouseleave', () => { if (!r.classList.contains('clist-active')) r.style.background = ''; });
+  });
+  const style = document.getElementById('clist-style') || document.createElement('style');
+  style.id = 'clist-style';
+  style.textContent = '.clist-active{background:rgba(0,212,255,.1)!important;border-left:2px solid var(--ac)!important}';
+  document.head.appendChild(style);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.customer-card-search'))
+    document.getElementById('cDropdown').style.display = 'none';
+});
+
+function setTheme(theme) {
+  document.body.dataset.theme = theme;
+  localStorage.setItem('tc_theme', theme);
+  document.getElementById('themeBtn').textContent = theme === 'dark' ? '🌙 DARK' : '☀️ LIGHT';
+  // ボタンのアクティブ表示
+  updateThemeBtns(theme);
+  const status = document.getElementById('themeStatus');
+  if (status) {
+    status.textContent = theme === 'dark' ? '✓ ダークモードに切り替えました' : '✓ ライトモードに切り替えました';
+    setTimeout(() => { status.textContent = ''; }, 2000);
+  }
+  if (charts.flag) loadKpi();
+}
+function updateThemeBtns(theme) {
+  const d = document.getElementById('theme-dark-btn');
+  const l = document.getElementById('theme-light-btn');
+  if (!d || !l) return;
+  d.style.borderColor = theme === 'dark' ? 'var(--ac)' : 'var(--bd)';
+  d.style.boxShadow = theme === 'dark' ? '0 0 12px rgba(0,212,255,.3)' : 'none';
+  l.style.borderColor = theme === 'light' ? '#0066CC' : 'var(--bd)';
+  l.style.boxShadow = theme === 'light' ? '0 0 12px rgba(0,102,204,.3)' : 'none';
+}
+
+/* ══════════════════════════════════
+   PHONE SYSTEM
+══════════════════════════════════ */
+function updatePhoneProvider() {
+  const p = document.getElementById('phoneProvider')?.value;
+  const z = document.getElementById('zoomPhoneSettings');
+  const t = document.getElementById('twilioSettings');
+  if (z) z.style.display = p === 'zoom' ? 'block' : 'none';
+  if (t) t.style.display = p === 'twilio' ? 'block' : 'none';
+}
+function savePhoneSettings() {
+  const p = document.getElementById('phoneProvider')?.value;
+  const settings = { provider: p };
+  if (p === 'zoom') {
+    settings.accountId = document.getElementById('zoomAccountId')?.value;
+    settings.clientId = document.getElementById('zoomClientId')?.value;
+    settings.clientSecret = document.getElementById('zoomClientSecret')?.value;
+    settings.fromNumber = document.getElementById('zoomFromNumber')?.value;
+  } else if (p === 'twilio') {
+    settings.sid = document.getElementById('twilioSid')?.value;
+    settings.token = document.getElementById('twilioToken')?.value;
+    settings.from = document.getElementById('twilioFrom')?.value;
+  }
+  localStorage.setItem('tc_phone', JSON.stringify(settings));
+  const badge = document.getElementById('phoneStatusBadge');
+  if (badge) {
+    badge.textContent = p === 'zoom' ? 'Zoom Phone 設定済み' : p === 'twilio' ? 'Twilio 設定済み' : '設定済み';
+    badge.style.background = 'rgba(0,255,136,.15)';
+    badge.style.color = 'var(--ac2)';
+  }
+  showToast('電話設定を保存しました ✓');
+}
+function testPhoneConnection() {
+  const result = document.getElementById('phoneTestResult');
+  if (!result) return;
+  result.style.color = 'var(--warn)';
+  result.textContent = '接続テスト中...';
+  setTimeout(() => {
+    result.style.color = 'var(--tx3)';
+    result.textContent = '※ 実際の接続テストはZoom Phone契約後に有効になります';
+  }, 1500);
+}
+function loadPhoneSettings() {
+  const saved = localStorage.getItem('tc_phone');
+  if (!saved) return;
+  const s = JSON.parse(saved);
+  const dm = document.getElementById('dialModeSel');
+  if (dm) dm.value = s.dialMode || 'tel';
+  const sel = document.getElementById('phoneProvider');
+  if (sel) { sel.value = s.provider || ''; updatePhoneProvider(); }
+  if (s.provider === 'zoom') {
+    if (document.getElementById('zoomAccountId')) document.getElementById('zoomAccountId').value = s.accountId || '';
+    if (document.getElementById('zoomClientId')) document.getElementById('zoomClientId').value = s.clientId || '';
+    if (document.getElementById('zoomFromNumber')) document.getElementById('zoomFromNumber').value = s.fromNumber || '';
+  }
+  const badge = document.getElementById('phoneStatusBadge');
+  if (badge && s.provider) {
+    badge.textContent = s.provider === 'zoom' ? 'Zoom Phone 設定済み' : 'Twilio 設定済み';
+    badge.style.background = 'rgba(0,255,136,.15)';
+    badge.style.color = 'var(--ac2)';
+  }
+}
+
+/* ══════════════════════════════════
+   GAS書き込み
+══════════════════════════════════ */
+// [v22] 選択中リストの「その相手の行」の備考列に直接書き込む（新しい行は作らない）
+async function writeToSheet(memo, row, col) {
+  if (row == null) return;
+  try {
+    await gasPost({
+      action: 'writeMemo',
+      row,
+      col: col || 'A',
+      memo: memo || '',
+      ...curSheetRef(),
+    });
+  } catch(e) {
+    console.warn('備考書き込みエラー:', e);
+  }
+}
+function extractId(s) {
+  const m = s.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : s.trim();
+}
+// [v10] リスト/フラグ設定を Supabase(app_config) に保存し全端末で共有。localStorage はキャッシュ。
+async function cfgSave(key, value) {
+  localStorage.setItem(key === 'sheets' ? 'tc_sheets' : 'tc_flags', JSON.stringify(value));
+  try { await db.from('app_config').upsert({ key, value }); }
+  catch (e) { console.warn('app_config保存スキップ:', e); }
+}
+async function loadConfig() {
+  try {
+    const { data, error } = await db.from('app_config').select('key,value');
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = r.value; });
+    if (Array.isArray(map.sheets)) { sheets = map.sheets; localStorage.setItem('tc_sheets', JSON.stringify(sheets)); }
+    else if (sheets.length) { await cfgSave('sheets', sheets); } // 既存localStorageのリストを初回だけクラウドへ移行
+    if (Array.isArray(map.flags) && map.flags.length) { flags = map.flags; localStorage.setItem('tc_flags', JSON.stringify(flags)); }
+  } catch (e) {
+    console.warn('app_config読込スキップ（localStorageを使用）:', e);
+  }
+}
+function saveSheets() { cfgSave('sheets', sheets); }
+function colIdx(c) { return c ? c.toUpperCase().charCodeAt(0)-65 : 0; }
+// [v14] リスト別：先頭0が抜けた電話番号を補完（純粋な数字で先頭が0でない場合に0を付与）
+function padPhone(v, on) {
+  if (!on) return v;
+  const s = String(v == null ? '' : v).trim();
+  if (s && s[0] !== '0' && /^[0-9]+$/.test(s)) return '0' + s;
+  return v;
+}
+// [v26] フリガナ複数列（カンマ/空白区切り）を連結
+function furiganaOf(r, sheet) {
+  if (!sheet.colFurigana) return '';
+  return String(sheet.colFurigana).split(/[,\s]+/).filter(Boolean)
+    .map(c => r[colIdx(c)] || '').filter(Boolean).join(' ');
+}
+
+async function loadSheet(sheet) {
+  try {
+    // GAS経由で色情報付きデータを取得
+    const id = extractId(sheet.id);
+    // [v9] ブラウザ→GAS直叩きはCORS/リダイレクト404で落ちるため、Vercelの中継(/api/gas)経由にする
+    const gasUrl = `/api/gas?sheetId=${id}&tab=${encodeURIComponent(sheet.tab||'シート1')}`;
+    const res = await fetch(gasUrl);
+    if (!res.ok) throw new Error('GAS HTTP ' + res.status);
+    const ct = res.headers.get('content-type') || '';
+    const text = await res.text();
+    // GASがHTML（ログインページ/エラーページ）を返した場合の検知。
+    // ＝デプロイの「アクセスできるユーザー：全員」未設定 or 再デプロイ漏れの可能性が高い。
+    if (text.trim().startsWith('<') || (!ct.includes('json') && !text.trim().startsWith('['))) {
+      throw new Error('GASがJSONを返していません（デプロイのアクセス権を「全員」に／コード修正後は新バージョンで再デプロイ）: ' + text.slice(0, 100));
+    }
+    const rows = JSON.parse(text);
+
+    customers = [];
+    for (const row of rows) {
+      if (row.isRed) continue; // 赤：架電禁止→除外
+      const r = row.values;
+      const c = {
+        row: row.row,
+        name: r[colIdx(sheet.colName)] || '',
+        phone: padPhone(r[colIdx(sheet.colPhone)], sheet.zeroPad) || '',
+        address: r[colIdx(sheet.colAddr)] || '',
+        備考: r[colIdx(sheet.colMemo||'A')] || '', // 備考列（管理画面で選択）
+        mobile: sheet.colMobile ? (padPhone(r[colIdx(sheet.colMobile)], sheet.zeroPad)||'') : '',
+        furigana: furiganaOf(r, sheet),
+        注意事項: sheet.colNote ? (r[colIdx(sheet.colNote)]||'') : '',
+        コール履歴: sheet.colHist ? (r[colIdx(sheet.colHist)]||'') : '',
+        初回会話履歴: sheet.colFirst ? (r[colIdx(sheet.colFirst)]||'') : '',
+        isYellow: row.isYellow, // 黄色：成約済み
+      };
+      if (c.name || c.phone) customers.push(c);
+    }
+
+    const statusEl = document.getElementById('sheetLoadStatus');
+    if (statusEl) statusEl.textContent = `✓ ${customers.length}件 読み込み完了（${sheet.name}）`;
+    showToast(`${customers.length}件の顧客を読み込みました`);
+    renderCustomerList();
+  } catch(e) {
+    // GASが失敗した場合はSheetsAPIにフォールバック（※色情報なし＝赤セル除外できない）
+    console.error('[v8] GAS取得に失敗しSheetsAPIへフォールバックします。赤セル除外は無効になります。原因:', e);
+    try {
+      const id = extractId(sheet.id);
+      const maxCol = String.fromCharCode(Math.max(
+        sheet.colName.toUpperCase().charCodeAt(0),
+        sheet.colPhone.toUpperCase().charCodeAt(0),
+        (sheet.colAddr||'C').toUpperCase().charCodeAt(0)
+      ));
+      const range = `${sheet.tab}!A:${maxCol}`;
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(range)}?key=${GK}`;
+      const res2 = await fetch(url);
+      const data = await res2.json();
+      if (!data.values) { showToast('読み込み失敗', true); return; }
+      const rows2 = data.values.slice((sheet.startRow||2)-1);
+      customers = rows2.map((r,i) => ({
+        row: i + (sheet.startRow||2),
+        name: r[colIdx(sheet.colName)] || '',
+        phone: padPhone(r[colIdx(sheet.colPhone)], sheet.zeroPad) || '',
+        address: r[colIdx(sheet.colAddr)] || '',
+        備考: r[colIdx(sheet.colMemo||'A')] || '',
+        mobile: sheet.colMobile ? (padPhone(r[colIdx(sheet.colMobile)], sheet.zeroPad)||'') : '',
+        furigana: furiganaOf(r, sheet),
+        注意事項: sheet.colNote ? (r[colIdx(sheet.colNote)]||'') : '',
+        コール履歴: sheet.colHist ? (r[colIdx(sheet.colHist)]||'') : '',
+        初回会話履歴: sheet.colFirst ? (r[colIdx(sheet.colFirst)]||'') : '',
+        isYellow: false,
+      })).filter(c => c.name || c.phone);
+      showToast(`⚠ ${customers.length}件読込（色情報なし＝赤セル除外は無効）`, true);
+      renderCustomerList();
+    } catch(e2) {
+      showToast('読み込みに失敗しました', true);
+    }
+  }
+}
+
+// [v17] リストの可視判定：管理者は全件、オペレーターは割り当て分のみ（未割当＝全員）
+function canSeeSheet(s){
+  if (isAdmin) return true;
+  const a = s && s.assignedTo;
+  return !a || !a.length || a.includes(myStaffId);
+}
+function firstVisibleIdx(){
+  for (let i=0;i<sheets.length;i++) if (canSeeSheet(sheets[i])) return i;
+  return -1;
+}
+function renderSettingsSheetSel() {
+  const sel = document.getElementById('activeSheetSel');
+  const visible = sheets.map((s,i)=>({s,i})).filter(o=>canSeeSheet(o.s));
+  if (!visible.length) { sel.innerHTML='<option value="">利用できるリストがありません</option>'; return; }
+  if (!visible.some(o=>o.i===activeSheetIdx)) activeSheetIdx = visible[0].i; // 可視でなければ先頭に寄せる
+  sel.innerHTML = visible.map(o=>`<option value="${o.i}" ${o.i===activeSheetIdx?'selected':''}>${o.s.name}</option>`).join('');
+}
+async function changeActiveSheet(idx) {
+  activeSheetIdx = parseInt(idx);
+  localStorage.setItem('tc_activeSheet', activeSheetIdx);
+  if (sheets[activeSheetIdx]) await loadSheet(sheets[activeSheetIdx]);
+}
+
+function renderSheetAdmin() {
+  const el = document.getElementById('sheetAdminList');
+  if (!sheets.length) { el.innerHTML='<div class="empty-state">スプレッドシートがありません</div>'; return; }
+  el.innerHTML = sheets.map((s,i) => {
+    const assigned = s.assignedTo || [];
+    const ops = (staffList||[]).map(st => {
+      const on = assigned.includes(st.id);
+      return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:2px 10px 2px 0;color:var(--tx2);cursor:pointer">
+        <input type="checkbox" ${on?'checked':''} onchange="toggleSheetAssign(${i},'${st.id}')" style="width:14px;height:14px;cursor:pointer"> ${st.name}
+      </label>`;
+    }).join('');
+    return `
+    <div class="row-item" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div>
+          <div class="row-item-name">${s.name}</div>
+          <div class="row-item-sub">${extractId(s.id).slice(0,20)}... / ${s.tab} / ${s.colName}${s.colPhone}${s.colAddr||''}</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn-ghost" onclick="loadSheet(sheets[${i}]);changeActiveSheet(${i})">読込</button>
+          <button class="btn-danger" onclick="deleteAdminSheet(${i})">削除</button>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--bd);padding-top:6px">
+        <div style="font-size:10px;color:var(--tx3);font-family:var(--mono);margin-bottom:4px">付与する架電者（未選択＝全員に表示）</div>
+        ${ops || '<span style="font-size:11px;color:var(--tx3)">架電者がいません（本人がログインすると登録されます）</span>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+// [v20] リストに架電者を付与/解除（メモリ上のみ。配信は「反映する」ボタンで）
+let assignDirty = false;
+function toggleSheetAssign(i, staffId) {
+  const s = sheets[i]; if (!s) return;
+  const set = new Set(s.assignedTo || []);
+  set.has(staffId) ? set.delete(staffId) : set.add(staffId);
+  s.assignedTo = [...set];
+  assignDirty = true;
+  const note = document.getElementById('assignDirtyNote'); if (note) note.style.display = 'block';
+  renderSheetAdmin();
+}
+// [v20] 割り当てをSupabaseへ配信（オペレーターは再読み込みで反映）
+async function publishAssignments() {
+  await cfgSave('sheets', sheets);   // Supabase(app_config)へ保存
+  assignDirty = false;
+  const note = document.getElementById('assignDirtyNote'); if (note) note.style.display = 'none';
+  showToast('配信しました。オペレーターは再読み込みで反映されます ✓');
+}
+async function addAdminSheet() {
+  const name = document.getElementById('aSheetName').value.trim();
+  const url = document.getElementById('aSheetUrl').value.trim();
+  const tab = document.getElementById('aSheetTab').value.trim()||'シート1';
+  const startRow = parseInt(document.getElementById('aSheetStart').value)||2;
+  const colName = document.getElementById('aColName').value.trim()||'A';
+  const colPhone = document.getElementById('aColPhone').value.trim()||'B';
+  const colAddr = document.getElementById('aColAddr').value.trim()||'C';
+  const colMemo = document.getElementById('aColMemo').value.trim()||'A';
+  const colNote = document.getElementById('aColNote').value.trim();
+  const colHist = document.getElementById('aColHist').value.trim();
+  const colFirst = document.getElementById('aColFirst').value.trim();
+  const colMobile = document.getElementById('aColMobile').value.trim();
+  const colFurigana = document.getElementById('aColFurigana').value.trim();
+  const zeroPad = !!document.getElementById('aZeroPad')?.checked;
+  if (!name||!url) { showToast('名前とURLを入力してください', true); return; }
+  const sheet = {name, id:url, tab, startRow, colName, colPhone, colAddr, colMemo, zeroPad, colNote, colHist, colFirst, colMobile, colFurigana};
+  sheets.push(sheet); saveSheets();
+  activeSheetIdx = sheets.length-1;
+  localStorage.setItem('tc_activeSheet', activeSheetIdx);
+  renderSheetAdmin(); renderSettingsSheetSel();
+  await loadSheet(sheet);
+}
+function deleteAdminSheet(i) {
+  if (!confirm('削除しますか？')) return;
+  sheets.splice(i,1); saveSheets();
+  if (activeSheetIdx >= sheets.length) activeSheetIdx = Math.max(0, sheets.length-1);
+  localStorage.setItem('tc_activeSheet', activeSheetIdx);
+  renderSheetAdmin(); renderSettingsSheetSel();
+}
+
+/* ══════════════════════════════════
+   SUBMIT
+══════════════════════════════════ */
+async function submitLog() {
+  const staffId = myStaffId; // [v15] Googleアカウントに紐づく架電者
+  if (!staffId) { showToast('架電者が未登録です。再ログインしてください', true); return; }
+  if (!selFlag) { showToast('フラグを選択してください', true); return; }
+  const btn = document.getElementById('recBtn');
+  btn.disabled = true; btn.textContent = '送信中...';
+  const memo = document.getElementById('memoInp').value.trim();
+  const cbVal = document.getElementById('cbInput').value;
+  const payload = {
+    staff_id:staffId, flag:selFlag, sub_flag:selSf||null,
+    memo:memo||null, customer_id:null,
+    callback_at: cbVal ? new Date(cbVal).toISOString() : null,
+    consent: document.getElementById('consentChk')?.checked || false, // [v15] 録音同意
+  };
+  if (selCust) {
+    const { data:ex } = await db.from('customers').select('id').eq('phone',selCust.phone).maybeSingle();
+    if (ex) { payload.customer_id = ex.id; }
+    else {
+      const { data:nc } = await db.from('customers').insert({name:selCust.name,phone:selCust.phone,address:selCust.address}).select().single();
+      if (nc) payload.customer_id = nc.id;
+    }
+  }
+  const { error } = await db.from('call_logs').insert(payload);
+  btn.disabled = false; btn.textContent = '◆ 記録する';
+  if (error) { showToast('エラーが発生しました', true); return; }
+  // 備考を選択中リストの相手の行（備考列）に直接保存
+  if (selCust?.row != null) await writeToSheet(memo, selCust.row, (sheets[activeSheetIdx]?.colMemo)||'A');
+  // [v24] 入力した備考はメモリ上の顧客データへ反映し、選び直しても表示されるように
+  if (selCust) {
+    selCust.備考 = memo;
+    const idx = customers.findIndex(c => c.phone === selCust.phone);
+    if (idx >= 0) customers[idx].備考 = memo;
+  }
+  // リセット（※備考欄は消さない＝入力内容を残す）
+  selFlag=''; selSf=''; isCalling=false;
+  document.querySelectorAll('.flag-btn').forEach(b=>{b.classList.remove('sel-flag');b.style.borderColor='';b.style.background='';b.style.color='';});
+  document.getElementById('sfArea').style.display='none';
+  document.getElementById('cbSection').style.display='none';
+  document.getElementById('cbInput').value='';
+  const cc=document.getElementById('consentChk'); if(cc) cc.checked=false;
+  document.getElementById('callBtn').textContent='📞';
+  document.getElementById('callBtn').classList.remove('calling');
+  document.getElementById('callStatus').textContent='顧客を選択して発信';
+  showToast('記録しました ✓');
+  loadTodayKpi(); loadTodayCallbacks();
+}
+
+/* ══════════════════════════════════
+   KPI
+══════════════════════════════════ */
+async function loadTodayKpi() {
+  const today=new Date(); today.setHours(0,0,0,0);
+  const { data } = await db.from('call_logs').select('flag').gte('created_at',today.toISOString());
+  if (!data) return;
+  const t=data.length, mk=data.filter(d=>d.flag==='見込み').length,
+    ng=data.filter(d=>d.flag==='趣旨NG').length,
+    rs=data.filter(d=>['留守1','留守2','現アナ'].includes(d.flag)).length;
+  document.getElementById('s-total').textContent=t;
+  document.getElementById('s-mikomi').textContent=mk;
+  document.getElementById('s-ng').textContent=t?Math.round(ng/t*100)+'%':'—';
+  document.getElementById('s-rusu').textContent=t?Math.round(rs/t*100)+'%':'—';
+}
+async function loadTodayCallbacks() {
+  const today=new Date(); today.setHours(0,0,0,0);
+  const tom=new Date(today); tom.setDate(tom.getDate()+1);
+  const { data } = await db.from('call_logs')
+    .select('*, customers(name)').eq('flag','見込み')
+    .not('callback_at','is',null)
+    .gte('callback_at',today.toISOString()).lt('callback_at',tom.toISOString())
+    .order('callback_at');
+  const el=document.getElementById('todayCbList');
+  if (!data?.length) { el.innerHTML='<div class="empty-state">なし</div>'; return; }
+  const now=new Date();
+  el.innerHTML=data.map(d=>{
+    const dt=new Date(d.callback_at);
+    const urgent=(dt-now)/60000<30&&dt>now;
+    const ts=dt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="tcb-item" style="${urgent?'color:var(--dng)':''}">
+      <div class="tcb-time" style="${urgent?'color:var(--dng)':''}">${ts}</div>
+      <div class="tcb-name">${d.customers?.name||d.memo||'—'}</div>
+    </div>`;
+  }).join('');
+  const badge=document.getElementById('cbBadge');
+  badge.textContent=data.length; badge.style.display='inline-block';
+}
+
+// [v16] 不通＝留守1/留守2/現アナ。接続＝それ以外。成約率＝成約÷接続(有効電話)。
+const NON_CONNECT_FLAGS = ['留守1','留守2','現アナ'];
+function kpiPct(x){ return Math.round(x*100)+'%'; }
+function kpiStat(arr){
+  const t=arr.length;
+  const fusu=arr.filter(d=>NON_CONNECT_FLAGS.includes(d.flag)).length;
+  const conn=t-fusu;
+  const seiyaku=arr.filter(d=>d.flag==='成約').length;
+  return {t, conn, fusu, seiyaku, connRate: t?conn/t:0, closeRate: conn?seiyaku/conn:0};
+}
+function kpiDelta(id, val, unit){
+  const e=document.getElementById(id); if(!e) return;
+  if(val===0||isNaN(val)){ e.textContent='±0'; e.style.color='var(--tx3)'; return; }
+  const sign=val>0?'+':'';
+  e.textContent= sign + (unit==='pt'? val.toFixed(1)+'pt' : Math.round(val));
+  e.style.color= val>0?'var(--ac2)':'var(--dng)';
+}
+async function loadKpi() {
+  const from=document.getElementById('kpiFrom')?.value;
+  const to=document.getElementById('kpiTo')?.value;
+  let q=db.from('call_logs').select('flag,created_at,staff_id,staff(name)').limit(50000);
+  if(from) q=q.gte('created_at', new Date(from+'T00:00:00').toISOString());
+  if(to) q=q.lte('created_at', new Date(to+'T23:59:59').toISOString());
+  const { data } = await q;
+  const rows=data||[];
+  const s=kpiStat(rows);
+  document.getElementById('k-total').textContent=s.t;
+  document.getElementById('k-conn').textContent=s.t?kpiPct(s.connRate):'—';
+  document.getElementById('k-close').textContent=s.conn?kpiPct(s.closeRate):'—';
+  document.getElementById('k-seiyaku').textContent=s.seiyaku;
+
+  // 期間比較（期間指定時のみ前期間と比較）
+  if(from && to){
+    const f=new Date(from+'T00:00:00'), tt=new Date(to+'T23:59:59');
+    const span=tt-f;
+    const prevTo=new Date(f.getTime()-1), prevFrom=new Date(f.getTime()-span-1);
+    const { data:pd } = await db.from('call_logs').select('flag')
+      .gte('created_at',prevFrom.toISOString()).lte('created_at',prevTo.toISOString()).limit(50000);
+    const ps=kpiStat(pd||[]);
+    kpiDelta('d-total', s.t-ps.t);
+    kpiDelta('d-conn', (s.connRate-ps.connRate)*100, 'pt');
+    kpiDelta('d-close', (s.closeRate-ps.closeRate)*100, 'pt');
+    kpiDelta('d-seiyaku', s.seiyaku-ps.seiyaku);
+  } else {
+    ['d-total','d-conn','d-close','d-seiyaku'].forEach(id=>{const e=document.getElementById(id); if(e){e.textContent='';}});
+  }
+
+  // 担当別テーブル
+  const byStaff={};
+  rows.forEach(d=>{const n=d.staff?.name||'不明'; (byStaff[n]=byStaff[n]||[]).push(d);});
+  const list=Object.entries(byStaff).map(([n,arr])=>({n, ...kpiStat(arr)}))
+    .sort((a,b)=>b.seiyaku-a.seiyaku || b.t-a.t);
+  const tb=document.getElementById('staffKpiBody');
+  tb.innerHTML = list.length ? list.map(r=>`<tr>
+      <td>${r.n}</td><td>${r.t}</td><td>${r.conn}</td><td>${kpiPct(r.connRate)}</td>
+      <td style="color:var(--ac2)">${r.seiyaku}</td><td>${r.conn?kpiPct(r.closeRate):'—'}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="empty-state">データなし</td></tr>';
+
+  if(!rows.length){ // グラフは空ならクリアして終了
+    ['flag','daily','staff','hour'].forEach(k=>{ if(charts[k]){charts[k].destroy(); charts[k]=null;} });
+    return;
+  }
+
+  const isDark=document.body.dataset.theme==='dark';
+  const gc=isDark?'#21262D':'#E2E8F0', tc=isDark?'#3A5A7A':'#94A3B8', lc=isDark?'#7BA3C4':'#4A6A8A';
+  const flagMap={};
+  rows.forEach(d=>{flagMap[d.flag]=(flagMap[d.flag]||0)+1});
+  const fl=Object.keys(flagMap), fv=Object.values(flagMap);
+  const fc=fl.map(l=>(flags.find(f=>f.name===l)||{color:'#888'}).color);
+  if(charts.flag) charts.flag.destroy();
+  charts.flag=new Chart(document.getElementById('flagChart'),{
+    type:'doughnut',data:{labels:fl,datasets:[{data:fv,backgroundColor:fc,borderWidth:0,hoverOffset:4}]},
+    options:{plugins:{legend:{labels:{color:lc,font:{size:10}}}},maintainAspectRatio:false}
+  });
+  const dayMap={};
+  rows.forEach(d=>{const day=d.created_at.slice(0,10);dayMap[day]=(dayMap[day]||0)+1});
+  const days=Object.keys(dayMap).sort().slice(-14);
+  if(charts.daily) charts.daily.destroy();
+  charts.daily=new Chart(document.getElementById('dailyChart'),{
+    type:'bar',data:{labels:days.map(d=>d.slice(5)),datasets:[{data:days.map(d=>dayMap[d]),backgroundColor:isDark?'rgba(0,212,255,.5)':'rgba(0,102,204,.5)',borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:tc,font:{size:9}},grid:{color:gc}},y:{ticks:{color:tc,font:{size:9}},grid:{color:gc}}},maintainAspectRatio:false}
+  });
+  const sm={};
+  rows.forEach(d=>{const n=d.staff?.name||'不明';sm[n]=(sm[n]||0)+1});
+  if(charts.staff) charts.staff.destroy();
+  charts.staff=new Chart(document.getElementById('staffChart'),{
+    type:'bar',data:{labels:Object.keys(sm),datasets:[{data:Object.values(sm),backgroundColor:isDark?'rgba(0,255,136,.5)':'rgba(0,168,84,.5)',borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},indexAxis:'y',scales:{x:{ticks:{color:tc,font:{size:9}},grid:{color:gc}},y:{ticks:{color:tc,font:{size:9}},grid:{color:gc}}},maintainAspectRatio:false}
+  });
+  const hm={};
+  for(let i=0;i<24;i++) hm[i]=0;
+  rows.forEach(d=>{const h=new Date(d.created_at).getHours();hm[h]=(hm[h]||0)+1});
+  if(charts.hour) charts.hour.destroy();
+  charts.hour=new Chart(document.getElementById('hourChart'),{
+    type:'line',data:{labels:Object.keys(hm).map(h=>h+'時'),datasets:[{data:Object.values(hm),borderColor:isDark?'#FFB800':'#CC7700',backgroundColor:isDark?'rgba(255,184,0,.1)':'rgba(204,119,0,.1)',tension:.4,pointRadius:2,fill:true}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:tc,font:{size:9}},grid:{color:gc}},y:{ticks:{color:tc,font:{size:9}},grid:{color:gc}}},maintainAspectRatio:false}
+  });
+}
+
+/* ══════════════════════════════════
+   CALLBACKS
+══════════════════════════════════ */
+async function loadCallbacks() {
+  const { data } = await db.from('call_logs')
+    .select('*, customers(name), staff(name)')
+    .eq('flag','見込み').not('callback_at','is',null)
+    .gte('callback_at',new Date().toISOString())
+    .order('callback_at').limit(50);
+  const el=document.getElementById('cbList');
+  if (!data?.length) { el.innerHTML='<div class="empty-state">コールバック予定なし</div>'; return; }
+  const now=new Date();
+  el.innerHTML=data.map(d=>{
+    const dt=new Date(d.callback_at);
+    const diff=(dt-now)/60000;
+    const urgent=diff<60&&diff>0;
+    const ts=dt.toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    return `<div class="cb-item ${urgent?'cb-urgent':''}">
+      <div class="cb-time">${ts}</div>
+      <div class="cb-info">
+        <div class="cb-name">${d.customers?.name||'—'}</div>
+        <div class="cb-memo">${d.memo||''}　${d.staff?.name||''}</div>
+      </div>
+      <div class="cb-cd">${diff>0?Math.ceil(diff)+'分後':'超過'}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════
+   ALARM
+══════════════════════════════════ */
+function startAlarmChecker() { checkAlarms(); setInterval(checkAlarms,30000); }
+async function checkAlarms() {
+  const now=new Date(), in10=new Date(now.getTime()+10*60000);
+  const { data } = await db.from('call_logs')
+    .select('id,callback_at,memo,customers(name)')
+    .eq('flag','見込み').not('callback_at','is',null)
+    .gte('callback_at',now.toISOString()).lte('callback_at',in10.toISOString());
+  if (!data?.length) return;
+  data.forEach(d=>{
+    if (notifiedIds.has(d.id)) return;
+    const diff=Math.ceil((new Date(d.callback_at)-now)/60000);
+    if (diff<=5) {
+      const name=d.customers?.name||d.memo||'見込み顧客';
+      const ts=new Date(d.callback_at).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      document.getElementById('alName').textContent=name;
+      document.getElementById('alTime').textContent=ts+' のコールバック';
+      document.getElementById('alarmOv').classList.add('show');
+      playBeep();
+      if (Notification.permission==='granted') new Notification('📞 コールバック 5分前',{body:`${name} - ${ts}`});
+      notifiedIds.add(d.id);
+      localStorage.setItem('tc_notified',JSON.stringify([...notifiedIds]));
+    }
+  });
+}
+function dismissAlarm() { document.getElementById('alarmOv').classList.remove('show'); }
+function playBeep() {
+  try {
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [0,.3,.6].forEach(t=>{
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value=880; o.type='sine';
+      g.gain.setValueAtTime(.3,ctx.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+t+.2);
+      o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+.2);
+    });
+  } catch(e){}
+}
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+}
+
+/* ══════════════════════════════════
+   LOGS
+══════════════════════════════════ */
+async function loadLogs() {
+  const staffId=document.getElementById('logStaff').value;
+  const flag=document.getElementById('logFlag').value;
+  const from=document.getElementById('logFrom')?.value;
+  const to=document.getElementById('logTo')?.value;
+  const phoneInput=document.getElementById('logPhone')?.value;
+  let q=db.from('call_logs').select('*, customers(name), staff(name)').order('created_at',{ascending:false}).limit(100);
+  if(staffId) q=q.eq('staff_id',staffId);
+  if(flag) q=q.eq('flag',flag);
+  if(from) q=q.gte('created_at', new Date(from+'T00:00:00').toISOString());
+  if(to) q=q.lte('created_at', new Date(to+'T23:59:59').toISOString());
+  const ids=await resolveCustomerIds(phoneInput);
+  if(ids){ if(!ids.length){ document.getElementById('logBody').innerHTML='<tr><td colspan="7" class="empty-state">該当する電話番号の顧客がいません</td></tr>'; return; } q=q.in('customer_id',ids); }
+  const { data } = await q;
+  const tbody=document.getElementById('logBody');
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="7" class="empty-state">データなし</td></tr>'; return; }
+  tbody.innerHTML=data.map(d=>{
+    const dt=new Date(d.created_at).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const cb=d.callback_at?new Date(d.callback_at).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    const fc=(flags.find(f=>f.name===d.flag)||{color:'#888'}).color;
+    return `<tr>
+      <td style="font-family:var(--mono);color:var(--tx3);white-space:nowrap;font-size:11px">${dt}</td>
+      <td>${d.staff?.name||'—'}</td>
+      <td>${d.customers?.name||'—'}</td>
+      <td><span class="flag-tag" style="background:${fc}22;color:${fc};border:1px solid ${fc}44">${d.flag}</span></td>
+      <td style="color:var(--tx3);font-size:11px">${d.sub_flag||''}</td>
+      <td style="font-size:11px">${d.memo||''}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--warn)">${cb}</td>
+    </tr>`;
+  }).join('');
+}
+
+// [v14] 電話番号→顧客ID解決（先頭0欠けにも寛容にマッチ）
+async function resolveCustomerIds(phoneInput) {
+  const digits = String(phoneInput || '').replace(/\D/g, '');
+  if (!digits) return null; // 未入力＝フィルタなし
+  const { data } = await db.from('customers').select('id,phone').limit(100000);
+  return (data || []).filter(c => {
+    const p = String(c.phone || '').replace(/\D/g, '');
+    return p && (p === digits || p.endsWith(digits) || digits.endsWith(p));
+  }).map(c => c.id);
+}
+
+/* ══════════════════════════════════
+   通話ログCSV抽出
+══════════════════════════════════ */
+async function exportLogs() {
+  if (!isAdmin) { showToast('全件抽出は管理者のみです', true); return; } // [v15]
+  const staffId=document.getElementById('logStaff').value;
+  const flag=document.getElementById('logFlag').value;
+  const from=document.getElementById('logFrom')?.value;
+  const to=document.getElementById('logTo')?.value;
+  const phoneInput=document.getElementById('logPhone')?.value;
+  let q=db.from('call_logs')
+    .select('created_at, flag, sub_flag, memo, callback_at, customers(name,phone), staff(name)')
+    .order('created_at',{ascending:false}).limit(10000);
+  if(staffId) q=q.eq('staff_id',staffId);
+  if(flag) q=q.eq('flag',flag);
+  if(from) q=q.gte('created_at', new Date(from+'T00:00:00').toISOString());
+  if(to) q=q.lte('created_at', new Date(to+'T23:59:59').toISOString());
+  const ids=await resolveCustomerIds(phoneInput);
+  if(ids){ if(!ids.length){ showToast('該当する電話番号の顧客がいません', true); return; } q=q.in('customer_id',ids); }
+  const { data, error } = await q;
+  if (error) { showToast('抽出に失敗しました: '+error.message, true); return; }
+  if (!data?.length) { showToast('対象データがありません', true); return; }
+  const headers=['日時','担当','顧客','電話','フラグ','詳細','メモ','コールバック'];
+  const esc=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
+  const rows=data.map(d=>[
+    new Date(d.created_at).toLocaleString('ja-JP'),
+    d.staff?.name||'',
+    d.customers?.name||'',
+    d.customers?.phone||'',
+    d.flag||'',
+    d.sub_flag||'',
+    d.memo||'',
+    d.callback_at?new Date(d.callback_at).toLocaleString('ja-JP'):'',
+  ].map(esc).join(','));
+  const csv='\uFEFF'+[headers.map(esc).join(','),...rows].join('\r\n'); // BOM付きでExcelの文字化け回避
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`call_logs_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showToast(`${data.length}件を抽出しました ✓`);
+}
+
+/* ══════════════════════════════════
+   TOAST
+══════════════════════════════════ */
+function showToast(msg, isErr=false) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+(isErr?'err':'ok');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>
