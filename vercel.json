@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/telecall_v38.html" }
+    { "source": "/((?!api/).*)", "destination": "/telecall_v39.html" }
   ]
 }
